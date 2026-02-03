@@ -1,150 +1,248 @@
 <!DOCTYPE html>
 <html>
+
 <head>
+    <title>My Local Maps</title>
     <meta charset="utf-8" />
-    <title>Pelias + MapLibre North America</title>
-    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-    
-    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
-    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <script src="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.css" type="text/css" />
+    <script src="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.css" rel="stylesheet" />
 
-    <link href="https://unpkg.com/@maplibre/maplibre-gl-directions@0.6.0/dist/maplibre-gl-directions.css" rel="stylesheet" />
-    <script src="https://unpkg.com/@maplibre/maplibre-gl-directions@0.6.0/dist/maplibre-gl-directions.js"></script>
     <style>
-        body { margin: 0; padding: 0; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-        
-        /* Optional: Style adjustments for the geocoder position */
-        .maplibregl-ctrl-geocoder {
-            min-width: 300px;
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        /* SEARCH BAR STYLES */
+        #search-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            width: 300px;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        #search-input {
+            width: 100%;
+            border: none;
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 4px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        #results-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+            border-top: 1px solid #eee;
+        }
+
+        #results-list li {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        #results-list li:hover {
+            background-color: #f9f9f9;
+        }
+
+        /* INSTRUCTION BOX */
+        #instructions {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            max-width: 300px;
+            font-size: 14px;
+        }
+
+        .mode-btn {
+            margin-top: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
         }
     </style>
 </head>
+
 <body>
 
-<div id="map"></div>
+    <div id="search-container">
+        <input type="text" id="search-input" placeholder="Search places..." autocomplete="off">
+        <ul id="results-list"></ul>
+    </div>
 
-<script>
-    // 1. Initialize the Map
-    var map = new maplibregl.Map({
-        container: 'map',
-        // Use a free public style (OpenStreetMap raster tiles) since you don't have a tile server yet.
-        style: 'http://localhost:8080/styles/basic-preview/style.json', 
-        center: [-77.8600, 40.7934], // Centered on State College/Boalsburg
+    <div id="instructions">
+        <b>🖱️ Interactive Routing</b><br>
+        <p>1. Left Click to set <b>Start</b> (Green)<br>
+            2. Left Click again to set <b>End</b> (Red)</p>
+        <button onclick="resetRoute()" class="mode-btn">❌ Clear Route</button>
+    </div>
 
-        zoom: 6
-    });
+    <div id="map"></div>
 
-    // 2. Add the Geocoder (Connected to YOUR Pelias)
-    var geocoder_api = {
-        forwardGeocode: async (config) => {
-            const features = [];
+    <script>
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            tiles: 'http://localhost:8080/styles/basic-preview/style.json',
+            pelias: 'http://localhost:4000/v1',
+            valhalla: 'http://localhost:8002/route'
+        };
+
+        // --- INITIALIZE MAP ---
+        var map = new maplibregl.Map({
+            container: 'map',
+            style: CONFIG.tiles,
+            center: [-77.8600, 40.7934], // State College / Boalsburg
+            zoom: 12
+        });
+
+        // --- 1. SEARCH / AUTOCOMPLETE LOGIC ---
+        const searchInput = document.getElementById('search-input');
+        const resultsList = document.getElementById('results-list');
+
+        searchInput.addEventListener('input', async (e) => {
+            const query = e.target.value;
+            if (query.length < 3) { resultsList.style.display = 'none'; return; }
+
+            // Fetch from Pelias Autocomplete API
             try {
-                // Pointing to your local Docker container
-                let request = 'http://localhost:4000/v1/search?text=' + config.query;
-                
-                const response = await fetch(request);
-                const geojson = await response.json();
-                
-                // MapLibre expects a slightly different format, but Pelias GeoJSON is standard enough
-                // We just return the features array directly
-                return {
-                    features: geojson.features
-                };
-            } catch (e) {
-                console.error(`Failed to forwardGeocode with error: ${e}`);
+                const res = await fetch(`${CONFIG.pelias}/autocomplete?text=${encodeURIComponent(query)}`);
+                const data = await res.json();
+
+                // Clear and show results
+                resultsList.innerHTML = '';
+                if (data.features && data.features.length > 0) {
+                    resultsList.style.display = 'block';
+                    data.features.forEach(feature => {
+                        const li = document.createElement('li');
+                        li.textContent = feature.properties.label;
+                        li.onclick = () => {
+                            // On click: Fly to location
+                            const coords = feature.geometry.coordinates;
+                            map.flyTo({ center: coords, zoom: 14 });
+                            resultsList.style.display = 'none';
+                            searchInput.value = feature.properties.label;
+                        };
+                        resultsList.appendChild(li);
+                    });
+                }
+            } catch (err) { console.error("Search error:", err); }
+        });
+
+        // --- 2. INTERACTIVE ROUTING LOGIC ---
+        let startMarker = null;
+        let endMarker = null;
+
+        map.on('click', async (e) => {
+            const coords = e.lngLat;
+
+            // Logic: First click = Start, Second click = End
+            if (!startMarker) {
+                startMarker = new maplibregl.Marker({ color: '#3bb2d0' }) // Green/Blue
+                    .setLngLat(coords)
+                    .setPopup(new maplibregl.Popup().setHTML("Start"))
+                    .addTo(map);
+            } else if (!endMarker) {
+                endMarker = new maplibregl.Marker({ color: '#f05c5c' }) // Red
+                    .setLngLat(coords)
+                    .setPopup(new maplibregl.Popup().setHTML("End"))
+                    .addTo(map);
+
+                // We have both points -> Calculate Route!
+                getRoute(startMarker.getLngLat(), endMarker.getLngLat());
             }
+        });
+
+        async function getRoute(start, end) {
+            const body = {
+                locations: [
+                    { lat: start.lat, lon: start.lng },
+                    { lat: end.lat, lon: end.lng }
+                ],
+                costing: "auto",
+                units: "km"
+            };
+
+            try {
+                const req = await fetch(CONFIG.valhalla, {
+                    method: 'POST',
+                    body: JSON.stringify(body)
+                });
+                const data = await req.json();
+
+                // Decode Valhalla Shape string
+                const coordinates = decodePolyline(data.trip.legs[0].shape, 6);
+
+                // Draw Line
+                if (map.getSource('route')) {
+                    map.getSource('route').setData({
+                        type: 'Feature', geometry: { type: 'LineString', coordinates: coordinates }
+                    });
+                } else {
+                    map.addSource('route', {
+                        type: 'geojson',
+                        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coordinates } }
+                    });
+                    map.addLayer({
+                        id: 'route', type: 'line', source: 'route',
+                        layout: { 'line-join': 'round', 'line-cap': 'round' },
+                        paint: { 'line-color': '#3b9ddd', 'line-width': 6, 'line-opacity': 0.8 }
+                    });
+                }
+            } catch (err) { console.error("Routing error:", err); }
         }
-    };
 
-    map.addControl(
-        new MaplibreGeocoder(geocoder_api, {
-            maplibregl: maplibregl,
-            marker: true,
-            showResultMarkers: true,
-            placeholder: 'Search North America (Localhost)...'
-        }),
-        'top-left'
-    );
+        // Reset Function
+        window.resetRoute = function () {
+            if (startMarker) startMarker.remove();
+            if (endMarker) endMarker.remove();
+            startMarker = null;
+            endMarker = null;
+            if (map.getSource('route')) {
+                map.getSource('route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] } });
+            }
+        };
 
-    // 3. Add Directions (Routing)
-    // CRITICAL: This requires a routing backend (Valhalla/OSRM).
-    // Pelias does NOT provide this API.
-    
-    // Uncomment the lines below if/when you have a router running.
-    map.on('load', async () => {
-      // 1. Define the Valhalla Route Request
-      const requestBody = {
-          locations: [
-              { lat: 40.7128, lon: -74.0060 }, // New York
-              { lat: 39.9526, lon: -75.1652 }  // Philadelphia
-          ],
-          costing: "auto",
-          units: "km"
-      };
-
-      // 2. Fetch from your Local Tunnel (Port 8002)
-      const response = await fetch('http://localhost:8002/route', {
-          method: 'POST',
-          body: JSON.stringify(requestBody)
-      });
-      
-      const data = await response.json();
-      
-      // 3. Decode the "Shape" (Polyline) from Valhalla
-      // Valhalla returns a compressed string to save bandwidth. We must decode it.
-      const coordinates = decodePolyline(data.trip.legs[0].shape, 6);
-
-      // 4. Add the Line to the Map
-      map.addSource('route', {
-          'type': 'geojson',
-          'data': {
-              'type': 'Feature',
-              'properties': {},
-              'geometry': {
-                  'type': 'LineString',
-                  'coordinates': coordinates
-              }
-          }
-      });
-
-      map.addLayer({
-          'id': 'route',
-          'type': 'line',
-          'source': 'route',
-          'layout': {
-              'line-join': 'round',
-              'line-cap': 'round'
-          },
-          'paint': {
-              'line-color': '#3b9ddd',
-              'line-width': 8
-          }
-      });
-  });
-
-  // Helper: Valhalla uses 6-digit precision polylines
-  function decodePolyline(str, precision) {
-      var index = 0, lat = 0, lng = 0, coordinates = [], shift = 0, result = 0, byte = null, latitude_change, longitude_change, factor = Math.pow(10, precision || 6);
-      while (index < str.length) {
-          byte = null; shift = 0; result = 0;
-          do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
-          latitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
-          shift = result = 0;
-          do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
-          longitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
-          lat += latitude_change; lng += longitude_change;
-          coordinates.push([lng / factor, lat / factor]);
-      }
-      return coordinates;
-  }
-    // Add standard navigation controls (Zoom in/out)
-    map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
-
-</script>
+        // Helper: Valhalla Polyline Decoder
+        function decodePolyline(str, precision) {
+            var index = 0, lat = 0, lng = 0, coordinates = [], shift = 0, result = 0, byte = null, latitude_change, longitude_change, factor = Math.pow(10, precision || 6);
+            while (index < str.length) {
+                byte = null; shift = 0; result = 0;
+                do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+                latitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
+                shift = result = 0;
+                do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+                longitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
+                lat += latitude_change; lng += longitude_change;
+                coordinates.push([lng / factor, lat / factor]);
+            }
+            return coordinates;
+        }
+    </script>
 
 </body>
+
 </html>
