@@ -11,9 +11,8 @@
     <script src="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.css" type="text/css" />
 
-    <script src="https://github.com/maplibre/maplibre-gl-directions/releases/download/v0.6.0/maplibre-gl-directions.js"></script>
-    <link rel="stylesheet" href="https://github.com/maplibre/maplibre-gl-directions/releases/download/v0.6.0/maplibre-gl-directions.css" type="text/css" />
-
+    <link href="https://unpkg.com/@maplibre/maplibre-gl-directions@0.6.0/dist/maplibre-gl-directions.css" rel="stylesheet" />
+    <script src="https://unpkg.com/@maplibre/maplibre-gl-directions@0.6.0/dist/maplibre-gl-directions.js"></script>
     <style>
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
@@ -36,7 +35,7 @@
         style: 'http://localhost:8080/styles/basic-preview/style.json', 
         center: [-77.8600, 40.7934], // Centered on State College/Boalsburg
 
-        zoom: 12
+        zoom: 6
     });
 
     // 2. Add the Geocoder (Connected to YOUR Pelias)
@@ -76,16 +75,72 @@
     // Pelias does NOT provide this API.
     
     // Uncomment the lines below if/when you have a router running.
-    // map.on('load', function() {
-    //     const directions = new MapLibreGlDirections(map, {
-    //         api: 'http://localhost:8002/route/v1', // EXAMPLE: Local Valhalla Port
-    //         profile: 'driving',
-    //     });
-        
-    //     // This adds the UI control, but it will error without the API above running.
-    //     // map.addControl(new maplibregl.NavigationControl()); 
-    // });
+    map.on('load', async () => {
+      // 1. Define the Valhalla Route Request
+      const requestBody = {
+          locations: [
+              { lat: 40.7128, lon: -74.0060 }, // New York
+              { lat: 39.9526, lon: -75.1652 }  // Philadelphia
+          ],
+          costing: "auto",
+          units: "km"
+      };
 
+      // 2. Fetch from your Local Tunnel (Port 8002)
+      const response = await fetch('http://localhost:8002/route', {
+          method: 'POST',
+          body: JSON.stringify(requestBody)
+      });
+      
+      const data = await response.json();
+      
+      // 3. Decode the "Shape" (Polyline) from Valhalla
+      // Valhalla returns a compressed string to save bandwidth. We must decode it.
+      const coordinates = decodePolyline(data.trip.legs[0].shape, 6);
+
+      // 4. Add the Line to the Map
+      map.addSource('route', {
+          'type': 'geojson',
+          'data': {
+              'type': 'Feature',
+              'properties': {},
+              'geometry': {
+                  'type': 'LineString',
+                  'coordinates': coordinates
+              }
+          }
+      });
+
+      map.addLayer({
+          'id': 'route',
+          'type': 'line',
+          'source': 'route',
+          'layout': {
+              'line-join': 'round',
+              'line-cap': 'round'
+          },
+          'paint': {
+              'line-color': '#3b9ddd',
+              'line-width': 8
+          }
+      });
+  });
+
+  // Helper: Valhalla uses 6-digit precision polylines
+  function decodePolyline(str, precision) {
+      var index = 0, lat = 0, lng = 0, coordinates = [], shift = 0, result = 0, byte = null, latitude_change, longitude_change, factor = Math.pow(10, precision || 6);
+      while (index < str.length) {
+          byte = null; shift = 0; result = 0;
+          do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+          latitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
+          shift = result = 0;
+          do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+          longitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
+          lat += latitude_change; lng += longitude_change;
+          coordinates.push([lng / factor, lat / factor]);
+      }
+      return coordinates;
+  }
     // Add standard navigation controls (Zoom in/out)
     map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 
