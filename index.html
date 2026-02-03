@@ -33,31 +33,10 @@
     var map = new maplibregl.Map({
         container: 'map',
         // Use a free public style (OpenStreetMap raster tiles) since you don't have a tile server yet.
-        style: {
-            'version': 8,
-            'sources': {
-                'osm': {
-                    'type': 'raster',
-                    'tiles': [
-                        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                    ],
-                    'tileSize': 256,
-                    'attribution': '&copy; OpenStreetMap Contributors',
-                    'maxzoom': 19
-                }
-            },
-            'layers': [
-                {
-                    'id': 'osm',
-                    'type': 'raster',
-                    'source': 'osm'
-                }
-            ]
-        },
-        center: [-98.5795, 39.8283], // Center of USA
-        zoom: 4
+        style: 'http://localhost:8080/styles/basic-preview/style.json', 
+        center: [-77.8600, 40.7934], // Centered on State College/Boalsburg
+
+        zoom: 12
     });
 
     // 2. Add the Geocoder (Connected to YOUR Pelias)
