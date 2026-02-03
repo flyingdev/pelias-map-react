@@ -1,13 +1,116 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pelias-map</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Pelias + MapLibre North America</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+
+    <script src="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.css" type="text/css" />
+
+    <script src="https://github.com/maplibre/maplibre-gl-directions/releases/download/v0.6.0/maplibre-gl-directions.js"></script>
+    <link rel="stylesheet" href="https://github.com/maplibre/maplibre-gl-directions/releases/download/v0.6.0/maplibre-gl-directions.css" type="text/css" />
+
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        
+        /* Optional: Style adjustments for the geocoder position */
+        .maplibregl-ctrl-geocoder {
+            min-width: 300px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script>
+    // 1. Initialize the Map
+    var map = new maplibregl.Map({
+        container: 'map',
+        // Use a free public style (OpenStreetMap raster tiles) since you don't have a tile server yet.
+        style: {
+            'version': 8,
+            'sources': {
+                'osm': {
+                    'type': 'raster',
+                    'tiles': [
+                        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                    ],
+                    'tileSize': 256,
+                    'attribution': '&copy; OpenStreetMap Contributors',
+                    'maxzoom': 19
+                }
+            },
+            'layers': [
+                {
+                    'id': 'osm',
+                    'type': 'raster',
+                    'source': 'osm'
+                }
+            ]
+        },
+        center: [-98.5795, 39.8283], // Center of USA
+        zoom: 4
+    });
+
+    // 2. Add the Geocoder (Connected to YOUR Pelias)
+    var geocoder_api = {
+        forwardGeocode: async (config) => {
+            const features = [];
+            try {
+                // Pointing to your local Docker container
+                let request = 'http://localhost:4000/v1/search?text=' + config.query;
+                
+                const response = await fetch(request);
+                const geojson = await response.json();
+                
+                // MapLibre expects a slightly different format, but Pelias GeoJSON is standard enough
+                // We just return the features array directly
+                return {
+                    features: geojson.features
+                };
+            } catch (e) {
+                console.error(`Failed to forwardGeocode with error: ${e}`);
+            }
+        }
+    };
+
+    map.addControl(
+        new MaplibreGeocoder(geocoder_api, {
+            maplibregl: maplibregl,
+            marker: true,
+            showResultMarkers: true,
+            placeholder: 'Search North America (Localhost)...'
+        }),
+        'top-left'
+    );
+
+    // 3. Add Directions (Routing)
+    // CRITICAL: This requires a routing backend (Valhalla/OSRM).
+    // Pelias does NOT provide this API.
+    
+    // Uncomment the lines below if/when you have a router running.
+    // map.on('load', function() {
+    //     const directions = new MapLibreGlDirections(map, {
+    //         api: 'http://localhost:8002/route/v1', // EXAMPLE: Local Valhalla Port
+    //         profile: 'driving',
+    //     });
+        
+    //     // This adds the UI control, but it will error without the API above running.
+    //     // map.addControl(new maplibregl.NavigationControl()); 
+    // });
+
+    // Add standard navigation controls (Zoom in/out)
+    map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+
+</script>
+
+</body>
 </html>
