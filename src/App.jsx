@@ -33,7 +33,7 @@ function App() {
         const features = [];
         try {
           // Pointing to YOUR local Pelias API
-          const request = `http://localhost:3100/v1/search?text=${config.query}&size=10`;
+          const request = `http://localhost:4000/v1/search?text=${config.query}&size=10`;
           const response = await fetch(request);
           const geojson = await response.json();
 
