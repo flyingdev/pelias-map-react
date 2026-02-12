@@ -119,6 +119,43 @@
             zoom: 12
         });
 
+        // --- GEOLOCATE USER ---
+        function showUserLocation(lat, lng, label) {
+            map.flyTo({ center: [lng, lat], zoom: 14 });
+            new maplibregl.Marker({ color: '#4668F2' })
+                .setLngLat([lng, lat])
+                .setPopup(new maplibregl.Popup().setHTML(label))
+                .addTo(map);
+        }
+
+        function fallbackIpGeolocation() {
+            fetch('http://ip-api.com/json/')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        console.log('IP geolocation:', data.city, data.country);
+                        showUserLocation(data.lat, data.lon, '📍 You are here (approx)');
+                    }
+                })
+                .catch(err => console.warn('IP geolocation failed:', err));
+        }
+
+        if ('geolocation' in navigator && window.isSecureContext) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    showUserLocation(
+                        position.coords.latitude,
+                        position.coords.longitude,
+                        '📍 You are here'
+                    );
+                },
+                () => fallbackIpGeolocation(),
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        } else {
+            fallbackIpGeolocation();
+        }
+
         // --- 1. SEARCH / AUTOCOMPLETE LOGIC ---
         const searchInput = document.getElementById('search-input');
         const resultsList = document.getElementById('results-list');
