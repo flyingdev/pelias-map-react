@@ -65,7 +65,7 @@
             background-color: #f9f9f9;
         }
 
-        /* INSTRUCTION BOX */
+        /* INSTRUCTION BOX (hidden on small screens via media query) */
         #instructions {
             position: absolute;
             bottom: 30px;
@@ -79,10 +79,100 @@
             font-size: 14px;
         }
 
+        @media (max-width: 768px) {
+            #instructions {
+                display: none !important;
+            }
+        }
+
         .mode-btn {
             margin-top: 10px;
             padding: 5px 10px;
             cursor: pointer;
+        }
+
+        /* NAVIGATE BUTTON IN POPUP */
+        .navigate-btn {
+            display: block;
+            margin-top: 8px;
+            padding: 8px 16px;
+            background: #3b9ddd;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .navigate-btn:active {
+            background: #2a7cb8;
+        }
+
+        /* MOBILE BOTTOM ACTION BAR */
+        #mobile-nav-bar {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1100;
+            background: white;
+            padding: 14px 16px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.15);
+            align-items: center;
+            gap: 10px;
+        }
+
+        #mobile-nav-bar.visible {
+            display: flex;
+        }
+
+        #mobile-nav-bar .dest-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        #mobile-nav-bar .dest-label {
+            font-size: 14px;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #mobile-nav-bar .dest-sub {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        #mobile-nav-bar .nav-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #mobile-nav-bar .nav-go {
+            background: #3b9ddd;
+            color: white;
+        }
+
+        #mobile-nav-bar .nav-go:active {
+            background: #2a7cb8;
+        }
+
+        #mobile-nav-bar .nav-clear {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        #mobile-nav-bar .nav-clear:active {
+            background: #ccc;
         }
     </style>
 </head>
@@ -101,6 +191,16 @@
         <button onclick="resetRoute()" class="mode-btn">❌ Clear Route</button>
     </div>
 
+    <!-- Bottom action bar (shown when a search result is selected) -->
+    <div id="mobile-nav-bar">
+        <div class="dest-info">
+            <div class="dest-label" id="mobile-dest-label">Destination</div>
+            <div class="dest-sub">Tap Navigate to get directions</div>
+        </div>
+        <button class="nav-btn nav-go" onclick="navigateToSearchPin()">Navigate</button>
+        <button class="nav-btn nav-clear" onclick="clearMobileNav()">✕</button>
+    </div>
+
     <div id="map"></div>
 
     <script>
@@ -111,6 +211,10 @@
             valhalla: '/route'
         };
 
+        // --- MOBILE DETECTION (screen width + touch) ---
+        const isMobile = (window.innerWidth <= 768) ||
+            (('ontouchstart' in window) && (window.innerWidth <= 1024));
+
         // --- INITIALIZE MAP ---
         var map = new maplibregl.Map({
             container: 'map',
@@ -120,7 +224,10 @@
         });
 
         // --- GEOLOCATE USER ---
+        let userLocation = null; // Store user's current location for navigation
+
         function showUserLocation(lat, lng, label) {
+            userLocation = { lat: lat, lng: lng };
             map.flyTo({ center: [lng, lat], zoom: 14 });
             new maplibregl.Marker({ color: '#4668F2' })
                 .setLngLat([lng, lat])
@@ -159,6 +266,7 @@
         // --- 1. SEARCH / AUTOCOMPLETE LOGIC ---
         const searchInput = document.getElementById('search-input');
         const resultsList = document.getElementById('results-list');
+        let searchMarker = null; // Pin for the searched location
 
         searchInput.addEventListener('input', async (e) => {
             const query = e.target.value;
@@ -177,11 +285,31 @@
                         const li = document.createElement('li');
                         li.textContent = feature.properties.label;
                         li.onclick = () => {
-                            // On click: Fly to location
                             const coords = feature.geometry.coordinates;
+                            const label = feature.properties.label;
+
+                            // Remove previous search pin
+                            if (searchMarker) searchMarker.remove();
+
+                            // Build popup with place name + Navigate button (desktop)
+                            const popupHTML = '<b>' + label + '</b>' +
+                                '<button class="navigate-btn" onclick="navigateToSearchPin()">Navigate</button>';
+
+                            searchMarker = new maplibregl.Marker({ color: '#e74c3c' })
+                                .setLngLat(coords)
+                                .setPopup(new maplibregl.Popup().setHTML(popupHTML))
+                                .addTo(map);
+
+                            // Fly to and open popup
                             map.flyTo({ center: coords, zoom: 14 });
+                            searchMarker.togglePopup();
+
                             resultsList.style.display = 'none';
-                            searchInput.value = feature.properties.label;
+                            searchInput.value = label;
+
+                            // Show the bottom action bar with Navigate button
+                            document.getElementById('mobile-dest-label').textContent = label;
+                            document.getElementById('mobile-nav-bar').classList.add('visible');
                         };
                         resultsList.appendChild(li);
                     });
@@ -189,29 +317,77 @@
             } catch (err) { console.error("Search error:", err); }
         });
 
+        // Navigate from user's current location to the search pin
+        window.navigateToSearchPin = function () {
+            if (!searchMarker) {
+                alert('No destination selected. Please search for a place first.');
+                return;
+            }
+            if (!userLocation) {
+                alert('Your location is not available yet. Please allow location access and try again.');
+                return;
+            }
+
+            // Save destination before clearing
+            const dest = searchMarker.getLngLat();
+            const destLabel = searchInput.value || 'Destination';
+            const start = { lat: userLocation.lat, lng: userLocation.lng };
+
+            // Clear any existing route/markers
+            if (startMarker) startMarker.remove();
+            if (endMarker) endMarker.remove();
+            if (searchMarker) searchMarker.remove();
+            startMarker = null;
+            endMarker = null;
+            searchMarker = null;
+            if (map.getSource('route')) {
+                map.getSource('route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] } });
+            }
+
+            // Place start marker at user location
+            startMarker = new maplibregl.Marker({ color: '#3bb2d0' })
+                .setLngLat([start.lng, start.lat])
+                .setPopup(new maplibregl.Popup().setHTML("Start"))
+                .addTo(map);
+
+            // Place end marker at destination
+            endMarker = new maplibregl.Marker({ color: '#f05c5c' })
+                .setLngLat(dest)
+                .setPopup(new maplibregl.Popup().setHTML('<b>' + destLabel + '</b>'))
+                .addTo(map);
+
+            // Hide mobile nav bar (route is now active)
+            hideMobileNavBar();
+
+            // Calculate route
+            getRoute(start, { lat: dest.lat, lng: dest.lng });
+        };
+
         // --- 2. INTERACTIVE ROUTING LOGIC ---
         let startMarker = null;
         let endMarker = null;
 
-        map.on('click', async (e) => {
-            const coords = e.lngLat;
+        // Desktop only: click-to-set-route (disabled on mobile to avoid conflicts with touch)
+        if (!isMobile) {
+            map.on('click', async (e) => {
+                const coords = e.lngLat;
 
-            // Logic: First click = Start, Second click = End
-            if (!startMarker) {
-                startMarker = new maplibregl.Marker({ color: '#3bb2d0' }) // Green/Blue
-                    .setLngLat(coords)
-                    .setPopup(new maplibregl.Popup().setHTML("Start"))
-                    .addTo(map);
-            } else if (!endMarker) {
-                endMarker = new maplibregl.Marker({ color: '#f05c5c' }) // Red
-                    .setLngLat(coords)
-                    .setPopup(new maplibregl.Popup().setHTML("End"))
-                    .addTo(map);
+                // Logic: First click = Start, Second click = End
+                if (!startMarker) {
+                    startMarker = new maplibregl.Marker({ color: '#3bb2d0' })
+                        .setLngLat(coords)
+                        .setPopup(new maplibregl.Popup().setHTML("Start"))
+                        .addTo(map);
+                } else if (!endMarker) {
+                    endMarker = new maplibregl.Marker({ color: '#f05c5c' })
+                        .setLngLat(coords)
+                        .setPopup(new maplibregl.Popup().setHTML("End"))
+                        .addTo(map);
 
-                // We have both points -> Calculate Route!
-                getRoute(startMarker.getLngLat(), endMarker.getLngLat());
-            }
-        });
+                    getRoute(startMarker.getLngLat(), endMarker.getLngLat());
+                }
+            });
+        }
 
         async function getRoute(start, end) {
             const body = {
@@ -252,12 +428,29 @@
             } catch (err) { console.error("Routing error:", err); }
         }
 
+        // Hide mobile nav bar helper
+        function hideMobileNavBar() {
+            document.getElementById('mobile-nav-bar').classList.remove('visible');
+        }
+
+        // Clear mobile nav: remove search pin + hide bar
+        window.clearMobileNav = function () {
+            if (searchMarker) searchMarker.remove();
+            searchMarker = null;
+            hideMobileNavBar();
+            searchInput.value = '';
+        };
+
         // Reset Function
         window.resetRoute = function () {
             if (startMarker) startMarker.remove();
             if (endMarker) endMarker.remove();
+            if (searchMarker) searchMarker.remove();
             startMarker = null;
             endMarker = null;
+            searchMarker = null;
+            hideMobileNavBar();
+            searchInput.value = '';
             if (map.getSource('route')) {
                 map.getSource('route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] } });
             }
