@@ -195,6 +195,57 @@
         #toggle-3d-btn:active {
             background: #f0f0f0;
         }
+
+        /* TURN-BY-TURN DIRECTIONS PANEL */
+        #turn-by-turn {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            z-index: 1000;
+            width: 300px;
+            max-height: 50vh;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 4px;
+            padding: 15px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            display: none;
+        }
+
+        #turn-by-turn h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #3b9ddd;
+            padding-bottom: 5px;
+        }
+
+        #directions-list {
+            list-style: decimal;
+            padding-left: 20px;
+            margin: 0;
+        }
+
+        #directions-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        #directions-list li.active {
+            background: #eaf4fd;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            #turn-by-turn {
+                top: auto;
+                bottom: 60px;
+                left: 10px;
+                right: 10px;
+                width: auto;
+                max-height: 35vh;
+            }
+        }
     </style>
 </head>
 
@@ -223,6 +274,12 @@
     </div>
 
     <button id="toggle-3d-btn" onclick="toggle3D()">3D</button>
+
+    <!-- Turn-by-turn directions panel (shown when route is calculated) -->
+    <div id="turn-by-turn">
+        <h3>Directions</h3>
+        <ul id="directions-list"></ul>
+    </div>
 
     <div id="map"></div>
 
@@ -409,6 +466,9 @@
             const destLabel = searchInput.value || 'Destination';
             const start = { lat: userLocation.lat, lng: userLocation.lng };
 
+            // Stop any running animation
+            if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
+
             // Clear any existing route/markers
             if (startMarker) startMarker.remove();
             if (endMarker) endMarker.remove();
@@ -418,6 +478,9 @@
             searchMarker = null;
             if (map.getSource('route')) {
                 map.getSource('route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] } });
+            }
+            if (map.getSource('car')) {
+                map.getSource('car').setData({ type: 'FeatureCollection', features: [] });
             }
 
             // Place start marker at user location
@@ -442,6 +505,7 @@
         // --- 2. INTERACTIVE ROUTING LOGIC ---
         let startMarker = null;
         let endMarker = null;
+        let animationId = null;
 
         // Desktop only: click-to-set-route (disabled on mobile to avoid conflicts with touch)
         if (!isMobile) {
@@ -485,7 +549,7 @@
                 // Decode Valhalla Shape string
                 const coordinates = decodePolyline(data.trip.legs[0].shape, 6);
 
-                // Draw Line
+                // --- A. DRAW THE STATIC ROUTE LINE ---
                 if (map.getSource('route')) {
                     map.getSource('route').setData({
                         type: 'Feature', geometry: { type: 'LineString', coordinates: coordinates }
@@ -498,9 +562,62 @@
                     map.addLayer({
                         id: 'route', type: 'line', source: 'route',
                         layout: { 'line-join': 'round', 'line-cap': 'round' },
-                        paint: { 'line-color': '#3b9ddd', 'line-width': 6, 'line-opacity': 0.8 }
+                        paint: { 'line-color': '#3b9ddd', 'line-width': 6, 'line-opacity': 0.6 }
                     });
                 }
+
+                // --- B. POPULATE TURN-BY-TURN PANEL ---
+                const maneuvers = data.trip.legs[0].maneuvers;
+                const directionsList = document.getElementById('directions-list');
+                directionsList.innerHTML = '';
+
+                maneuvers.forEach(function (step) {
+                    const li = document.createElement('li');
+                    li.innerHTML = '<b>' + step.instruction + '</b><br><small>' +
+                        (step.length ? step.length.toFixed(1) + ' km' : '') + '</small>';
+                    directionsList.appendChild(li);
+                });
+                document.getElementById('turn-by-turn').style.display = 'block';
+
+                // --- C. ANIMATE THE "CAR" DOT ---
+                if (animationId) cancelAnimationFrame(animationId);
+
+                var pointData = {
+                    'type': 'FeatureCollection',
+                    'features': [{
+                        'type': 'Feature',
+                        'geometry': { 'type': 'Point', 'coordinates': coordinates[0] }
+                    }]
+                };
+
+                if (map.getSource('car')) {
+                    map.getSource('car').setData(pointData);
+                } else {
+                    map.addSource('car', { 'type': 'geojson', 'data': pointData });
+                    map.addLayer({
+                        'id': 'car-layer',
+                        'type': 'circle',
+                        'source': 'car',
+                        'paint': {
+                            'circle-radius': 7,
+                            'circle-color': '#202020',
+                            'circle-stroke-width': 3,
+                            'circle-stroke-color': '#ffffff'
+                        }
+                    });
+                }
+
+                var counter = 0;
+                function animateCar() {
+                    if (counter < coordinates.length) {
+                        pointData.features[0].geometry.coordinates = coordinates[counter];
+                        map.getSource('car').setData(pointData);
+                        counter += 2;
+                        animationId = requestAnimationFrame(animateCar);
+                    }
+                }
+                animateCar();
+
             } catch (err) { console.error("Routing error:", err); }
         }
 
@@ -517,7 +634,7 @@
             searchInput.value = '';
         };
 
-        // Reset Function
+        // Reset Function (clears map, stops animation, hides panels)
         window.resetRoute = function () {
             if (startMarker) startMarker.remove();
             if (endMarker) endMarker.remove();
@@ -527,9 +644,20 @@
             searchMarker = null;
             hideMobileNavBar();
             searchInput.value = '';
+
+            // Stop car animation
+            if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
+
+            // Clear route line and car dot
             if (map.getSource('route')) {
                 map.getSource('route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] } });
             }
+            if (map.getSource('car')) {
+                map.getSource('car').setData({ type: 'FeatureCollection', features: [] });
+            }
+
+            // Hide directions panel
+            document.getElementById('turn-by-turn').style.display = 'none';
         };
 
         // Helper: Valhalla Polyline Decoder
