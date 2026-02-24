@@ -1,18 +1,491 @@
-#root {
-  width: 100%;
-  height: 100vh;
-  margin: 0;
-  padding: 0;
-}
-
+/* Map container */
 .map-wrap {
   position: relative;
   width: 100%;
-  height: 100%; /* Full screen */
+  height: 100%;
 }
 
 .map {
   position: absolute;
   width: 100%;
   height: 100%;
+}
+
+/* Search bar */
+#search-container {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  width: 300px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+#search-input {
+  width: 100%;
+  border: none;
+  padding: 12px;
+  font-size: 16px;
+  border-radius: 4px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+#results-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: none;
+  max-height: 300px;
+  overflow-y: auto;
+  border-top: 1px solid #eee;
+}
+
+#results-list.visible {
+  display: block;
+}
+
+#results-list li {
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+#results-list li:hover {
+  background-color: #f9f9f9;
+}
+
+/* Instruction box (desktop only) */
+#instructions {
+  position: absolute;
+  bottom: 30px;
+  left: 20px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 15px;
+  border-radius: 5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  max-width: 300px;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  #instructions {
+    display: none !important;
+  }
+}
+
+.mode-btn {
+  margin-top: 10px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+/* Navigate button in popup */
+.navigate-btn {
+  display: block;
+  margin-top: 8px;
+  padding: 8px 16px;
+  background: #3b9ddd;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.navigate-btn:active {
+  background: #2a7cb8;
+}
+
+/* Mobile bottom action bar */
+#mobile-nav-bar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1100;
+  background: white;
+  padding: 14px 16px;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.15);
+  align-items: center;
+  gap: 10px;
+}
+
+#mobile-nav-bar.visible {
+  display: flex;
+}
+
+#mobile-nav-bar .dest-info {
+  flex: 1;
+  min-width: 0;
+}
+
+#mobile-nav-bar .dest-label {
+  font-size: 14px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#mobile-nav-bar .dest-sub {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
+#mobile-nav-bar .nav-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#mobile-nav-bar .nav-go {
+  background: #3b9ddd;
+  color: white;
+}
+
+#mobile-nav-bar .nav-go:active {
+  background: #2a7cb8;
+}
+
+#mobile-nav-bar .nav-clear {
+  background: #e0e0e0;
+  color: #333;
+}
+
+#mobile-nav-bar .nav-clear:active {
+  background: #ccc;
+}
+
+/* Mode selector (Drive / Bike / Walk) */
+.mode-selector {
+  position: absolute;
+  top: 20px;
+  right: 80px;
+  z-index: 1000;
+  display: flex;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.mode-selector-btn {
+  padding: 8px 14px;
+  border: none;
+  background: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #555;
+  border-right: 1px solid #eee;
+}
+
+.mode-selector-btn:last-child {
+  border-right: none;
+}
+
+.mode-selector-btn.active {
+  background: #3b9ddd;
+  color: white;
+}
+
+.mode-selector-btn:not(.active):hover {
+  background: #f5f5f5;
+}
+
+/* 2D/3D toggle button */
+#toggle-3d-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  padding: 10px 16px;
+  background: white;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+}
+
+#toggle-3d-btn:active {
+  background: #f0f0f0;
+}
+
+/* Turn-by-turn directions panel */
+#turn-by-turn {
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  z-index: 1000;
+  width: 300px;
+  max-height: 50vh;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 4px;
+  padding: 15px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+#turn-by-turn h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  border-bottom: 2px solid #3b9ddd;
+  padding-bottom: 5px;
+}
+
+.route-summary {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0 10px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 8px;
+}
+
+.route-summary .route-eta {
+  color: #3b9ddd;
+}
+
+.route-summary .route-arrival {
+  font-weight: normal;
+  color: #888;
+  font-size: 12px;
+}
+
+#directions-list {
+  list-style: decimal;
+  padding-left: 20px;
+  margin: 0;
+}
+
+#directions-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+#directions-list li.active {
+  background: #eaf4fd;
+  font-weight: bold;
+}
+
+@media (max-width: 768px) {
+  #turn-by-turn {
+    top: auto;
+    bottom: 60px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-height: 35vh;
+  }
+}
+
+/* Recenter button */
+#recenter-btn {
+  position: absolute;
+  bottom: 30px;
+  right: 20px;
+  z-index: 1000;
+  background-color: #007cbf;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+/* Speedometer */
+#speedometer {
+  position: absolute;
+  bottom: 30px;
+  left: 20px;
+  z-index: 1000;
+  background-color: rgba(20, 20, 20, 0.85);
+  color: #00ff00;
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 10px 15px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 28px;
+  font-weight: bold;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+}
+
+#speedometer span {
+  font-size: 12px;
+  color: #ffffff;
+  display: block;
+  margin-top: -5px;
+}
+
+#speedometer .accuracy {
+  font-size: 10px;
+  color: #aaa;
+  margin-top: 2px;
+}
+
+/* Isochrone button + panel */
+.isochrone-wrap {
+  position: absolute;
+  bottom: 90px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.isochrone-toggle {
+  width: 42px;
+  height: 42px;
+  background: white;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.isochrone-toggle.active {
+  background: #3b9ddd;
+}
+
+.isochrone-toggle:hover:not(.active) {
+  background: #f0f0f0;
+}
+
+.isochrone-panel {
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  padding: 12px 14px;
+  min-width: 160px;
+}
+
+.isochrone-title {
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.isochrone-mode {
+  display: flex;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.isochrone-mode-btn {
+  flex: 1;
+  padding: 5px 0;
+  border: none;
+  background: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #555;
+  border-right: 1px solid #ddd;
+}
+
+.isochrone-mode-btn:last-child {
+  border-right: none;
+}
+
+.isochrone-mode-btn.active {
+  background: #3b9ddd;
+  color: white;
+}
+
+.isochrone-mode-btn:not(.active):hover {
+  background: #f5f5f5;
+}
+
+.isochrone-contours {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.isochrone-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.isochrone-check input {
+  cursor: pointer;
+}
+
+.isochrone-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.isochrone-btn {
+  flex: 1;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.isochrone-btn-show {
+  background: #3b9ddd;
+  color: white;
+}
+
+.isochrone-btn-show:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.isochrone-btn-show:not(:disabled):hover {
+  background: #2a7cb8;
+}
+
+.isochrone-btn-clear {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.isochrone-btn-clear:hover {
+  background: #e0e0e0;
+}
+
+.isochrone-warn {
+  font-size: 11px;
+  color: #f05c5c;
+  margin-top: 6px;
 }
