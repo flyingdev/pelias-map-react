@@ -19,6 +19,7 @@ import DirectionsPanel from './DirectionsPanel';
 import RecenterButton from './RecenterButton';
 import Speedometer from './Speedometer';
 import IsochronePanel from './IsochronePanel';
+import SamChat from './SamChat';
 
 export default function ScisboMap({
   initialCenter,
@@ -188,7 +189,15 @@ export default function ScisboMap({
     <div className="map-wrap">
       <div ref={mapContainerRef} className="map" />
 
-      <SearchBar onSelect={handleSearchSelect} />
+      <div className="top-left-stack">
+        <div className="top-row">
+          <SearchBar onSelect={handleSearchSelect} />
+          <Toggle3DButton mcRef={mcRef} />
+        </div>
+        {routeData && (
+          <ModeSelector activeMode={activeCosting} onChange={handleModeChange} />
+        )}
+      </div>
 
       {!isMobile && <InstructionsBox onReset={resetRoute} />}
 
@@ -197,12 +206,6 @@ export default function ScisboMap({
         onNavigate={navigateToSearchPin}
         onClear={clearMobileNav}
       />
-
-      <Toggle3DButton mcRef={mcRef} />
-
-      {routeData && (
-        <ModeSelector activeMode={activeCosting} onChange={handleModeChange} />
-      )}
 
       {routeData && (
         <DirectionsPanel
@@ -227,6 +230,8 @@ export default function ScisboMap({
       />
 
       <Speedometer speed={speedMph} accuracy={accuracyM} visible={isTracking} />
+
+      <SamChat />
     </div>
   );
 }

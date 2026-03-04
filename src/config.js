@@ -5,5 +5,5 @@ export const CONFIG = {
   isochrone: '/isochrone',
   wsEndpoint: '/ws-endpoint',           // STOMP handshake path
   wsCommandsTopic: '/topic/map-commands', // STOMP topic Sam broadcasts on
-  wsEnabled: false,                    // set true when Sam backend is running
+  wsEnabled: true,                     // Sam backend is running
 };
