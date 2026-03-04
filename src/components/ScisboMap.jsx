@@ -72,6 +72,15 @@ export default function ScisboMap({
     return mc.on('route', (data) => setRouteData(data));
   }, [mcRef]);
 
+  // Show routing errors to the user
+  useEffect(() => {
+    const mc = mcRef.current;
+    if (!mc) return;
+    return mc.on('error', ({ type, message }) => {
+      if (type === 'routing') alert(`Routing failed: ${message}`);
+    });
+  }, [mcRef]);
+
   // Reset isochrone toggle when controller clears the layer
   useEffect(() => {
     const mc = mcRef.current;

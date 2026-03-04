@@ -159,6 +159,11 @@ export class MapController extends EventEmitter {
       });
       const data = await res.json();
 
+      if (!res.ok || !data.trip) {
+        const msg = data.error || `Route request failed (${res.status})`;
+        throw new Error(msg);
+      }
+
       const leg = data.trip.legs[0];
       const coordinates = decodePolyline(leg.shape, 6);
       const maneuvers = leg.maneuvers;
