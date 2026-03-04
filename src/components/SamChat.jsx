@@ -1,12 +1,17 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import { transcribeAudio } from '../utils/stt';
 
 export default function SamChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const listRef = useRef(null);
   const inputRef = useRef(null);
+
+  const { recording, startRecord, stopRecord } = useVoiceRecorder();
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -22,8 +27,8 @@ export default function SamChat() {
     }
   }, [open]);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
+  const send = useCallback(async (overrideText) => {
+    const text = (overrideText || input).trim();
     if (!text || loading) return;
 
     setInput('');
@@ -48,6 +53,30 @@ export default function SamChat() {
     }
   }, [input, loading]);
 
+  const handleMicToggle = useCallback(async () => {
+    if (recording) {
+      const blob = await stopRecord();
+      if (!blob) return;
+      setTranscribing(true);
+      try {
+        const text = await transcribeAudio(blob);
+        if (text.trim()) {
+          await send(text.trim());
+        }
+      } catch (err) {
+        console.warn('[SamChat] Transcription error:', err);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'sam', text: 'Sorry, I could not transcribe the audio.' },
+        ]);
+      } finally {
+        setTranscribing(false);
+      }
+    } else {
+      await startRecord();
+    }
+  }, [recording, stopRecord, startRecord, send]);
+
   const handleKeyDown = useCallback(
     (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -57,6 +86,12 @@ export default function SamChat() {
     },
     [send]
   );
+
+  const placeholder = recording
+    ? 'Recording...'
+    : transcribing
+      ? 'Transcribing...'
+      : 'Ask Sam...';
 
   return (
     <div className="sam-chat-wrap">
@@ -96,16 +131,25 @@ export default function SamChat() {
               ref={inputRef}
               className="sam-chat-input"
               type="text"
-              placeholder="Ask Sam..."
+              placeholder={placeholder}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={loading}
+              disabled={loading || recording || transcribing}
             />
             <button
+              className={`sam-chat-mic ${recording ? 'recording' : ''}`}
+              onClick={handleMicToggle}
+              disabled={loading || transcribing}
+              aria-label={recording ? 'Stop recording' : 'Start voice input'}
+              title={recording ? 'Stop recording' : 'Voice input'}
+            >
+              {transcribing ? '...' : recording ? '\u23F9' : '\uD83C\uDFA4'}
+            </button>
+            <button
               className="sam-chat-send"
-              onClick={send}
-              disabled={loading || !input.trim()}
+              onClick={() => send()}
+              disabled={loading || !input.trim() || recording}
             >
               Send
             </button>

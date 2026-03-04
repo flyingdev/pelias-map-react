@@ -6,4 +6,5 @@ export const CONFIG = {
   wsEndpoint: '/ws-endpoint',           // STOMP handshake path
   wsCommandsTopic: '/topic/map-commands', // STOMP topic Sam broadcasts on
   wsEnabled: true,                     // Sam backend is running
+  samTranscribe: '/api/sam/transcribe', // Whisper speech-to-text
 };
