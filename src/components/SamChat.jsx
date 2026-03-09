@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Drawer, TextInput, ActionIcon, Group, Text, Box,
-  ScrollArea, Avatar, Loader, MantineProvider,
+  ScrollArea, Avatar, Loader,
 } from '@mantine/core';
 import { IconMicrophone, IconSend, IconX, IconRobotFace, IconPlayerStop } from '@tabler/icons-react';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
@@ -77,7 +77,7 @@ export default function SamChat() {
   const placeholder = recording ? 'Recording...' : transcribing ? 'Transcribing...' : 'Ask Sam to navigate or find places...';
 
   return (
-    <MantineProvider>
+    <>
       <style>{pulseStyle}</style>
 
       {/* Trigger button */}
@@ -111,6 +111,7 @@ export default function SamChat() {
         position="bottom"
         size="45vh"
         withCloseButton={false}
+        zIndex={2000}
         overlayProps={{ opacity: 0.2, blur: 2 }}
         styles={{
           content: {
@@ -237,6 +238,6 @@ export default function SamChat() {
           }
         />
       </Drawer>
-    </MantineProvider>
+    </>
   );
 }
