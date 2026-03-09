@@ -48,6 +48,10 @@ export default function SamChat() {
       });
       const data = await res.json();
       setMessages((prev) => [...prev, { role: 'sam', text: data.reply }]);
+      if (data.reply) {
+        const audio = new Audio(`/api/sam/speak?text=${encodeURIComponent(data.reply)}`);
+        audio.play().catch(() => {});
+      }
     } catch {
       setMessages((prev) => [...prev, { role: 'sam', text: 'Sorry, I could not reach the server.' }]);
     } finally {
