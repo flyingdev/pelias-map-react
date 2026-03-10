@@ -49,7 +49,8 @@ export default function SamChat() {
       const data = await res.json();
       setMessages((prev) => [...prev, { role: 'sam', text: data.reply }]);
       if (data.reply) {
-        const audio = new Audio(`/api/sam/speak?text=${encodeURIComponent(data.reply)}`);
+        const clean = data.reply.replace(/[*_`#%~^\\]/g, '').replace(/\s+/g, ' ').trim();
+        const audio = new Audio(`/api/sam/speak?text=${encodeURIComponent(clean)}`);
         audio.play().catch(() => {});
       }
     } catch {

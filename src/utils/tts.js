@@ -1,5 +1,4 @@
 // Piper TTS via gateway route (avoids mixed-content on HTTPS pages)
-const PIPER_VOICE = 'en_US-lessac-medium';
 let piperEnabled = true;
 
 // Module-level Audio ref — lets us interrupt any currently playing speech
@@ -24,7 +23,7 @@ async function speakPiper(text) {
   stopCurrentAudio();
 
   try {
-    const url = `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(PIPER_VOICE)}`;
+    const url = `/api/sam/speak?text=${encodeURIComponent(text)}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Piper HTTP ${res.status}`);
 
