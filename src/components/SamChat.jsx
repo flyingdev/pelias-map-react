@@ -6,6 +6,7 @@ import {
 import { IconMicrophone, IconSend, IconX, IconRobotFace, IconPlayerStop } from '@tabler/icons-react';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { transcribeAudio } from '../utils/stt';
+import { useAudioQueue } from '../context/AudioQueueContext';
 
 const pulseStyle = `
   @keyframes pulse-record {
@@ -29,6 +30,7 @@ export default function SamChat() {
   const listRef = useRef(null);
 
   const { recording, startRecord, stopRecord } = useVoiceRecorder();
+  const { enqueueAudio } = useAudioQueue();
 
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
@@ -49,9 +51,7 @@ export default function SamChat() {
       const data = await res.json();
       setMessages((prev) => [...prev, { role: 'sam', text: data.reply }]);
       if (data.reply) {
-        const clean = data.reply.replace(/[*_`#%~^\\]/g, '').replace(/\s+/g, ' ').trim();
-        const audio = new Audio(`/api/sam/speak?text=${encodeURIComponent(clean)}`);
-        audio.play().catch(() => {});
+        enqueueAudio(data.reply);
       }
     } catch {
       setMessages((prev) => [...prev, { role: 'sam', text: 'Sorry, I could not reach the server.' }]);

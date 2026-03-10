@@ -1,4 +1,6 @@
 // Piper TTS via gateway route (avoids mixed-content on HTTPS pages)
+import { stopAllAudio } from './audioManager';
+
 let piperEnabled = true;
 
 // Module-level Audio ref — lets us interrupt any currently playing speech
@@ -20,6 +22,7 @@ function stopCurrentAudio() {
 // Fetches audio as a blob first so a 404/error page never reaches Audio(),
 // which would throw NotSupportedError and make the error look scarier than it is.
 async function speakPiper(text) {
+  stopAllAudio();
   stopCurrentAudio();
 
   try {
