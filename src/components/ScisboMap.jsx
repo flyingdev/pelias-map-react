@@ -9,6 +9,10 @@ import { useGeolocation } from '../hooks/useGeolocation';
 import { useGpsTracking } from '../hooks/useGpsTracking';
 import { useReverseGeocode } from '../hooks/useReverseGeocode';
 import { useMapCommands } from '../hooks/useMapCommands';
+import { useWakeLock } from '../hooks/useWakeLock';
+import { useCompass } from '../hooks/useCompass';
+import { ActionIcon } from '@mantine/core';
+import { IconCompass } from '@tabler/icons-react';
 
 import SearchBar from './SearchBar';
 import InstructionsBox from './InstructionsBox';
@@ -193,6 +197,17 @@ export default function ScisboMap({
 
   useReverseGeocode(mcRef, handleReverseNavigate);
   useMapCommands(mcRef, userLocation);
+  useWakeLock(isTracking);
+  const { heading, isCompassActive, toggleCompass } = useCompass();
+
+  // Rotate map bearing with compass when active and tracking
+  useEffect(() => {
+    const mc = mcRef.current;
+    if (isCompassActive && isFollowing && mc?.map) {
+      mc.map.setBearing(heading);
+      if (mc.map.getPitch() < 50) mc.map.setPitch(60);
+    }
+  }, [heading, isCompassActive, isFollowing, mcRef]);
 
   return (
     <div className="map-wrap">
@@ -239,6 +254,20 @@ export default function ScisboMap({
       />
 
       <Speedometer speed={speedMph} accuracy={accuracyM} visible={isTracking} />
+
+      {isTracking && (
+        <ActionIcon
+          onClick={toggleCompass}
+          variant={isCompassActive ? 'filled' : 'light'}
+          color={isCompassActive ? 'red' : 'blue'}
+          size="xl"
+          radius="xl"
+          style={{ position: 'absolute', top: 120, right: 20, zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+          aria-label="Toggle compass"
+        >
+          <IconCompass size={24} />
+        </ActionIcon>
+      )}
 
       <SamChat />
     </div>
