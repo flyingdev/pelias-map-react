@@ -891,6 +891,90 @@ export class MapController extends EventEmitter {
     return !!this.map?.getLayer('3d-buildings');
   }
 
+  // ===================== TRAFFIC INCIDENTS =====================
+
+  async fetchTrafficIncidents() {
+    try {
+      const res = await fetch(CONFIG.trafficIncidents);
+      if (!res.ok) throw new Error(`Traffic HTTP ${res.status}`);
+      const geojson = await res.json();
+      this._drawTrafficIncidents(geojson);
+      return geojson;
+    } catch (err) {
+      console.warn('[Traffic] Failed to fetch incidents:', err.message);
+    }
+  }
+
+  _drawTrafficIncidents(geojson) {
+    if (!this.map?.isStyleLoaded()) return;
+
+    if (this.map.getSource('traffic-incidents')) {
+      this.map.getSource('traffic-incidents').setData(geojson);
+      return;
+    }
+
+    this.map.addSource('traffic-incidents', { type: 'geojson', data: geojson });
+
+    this.map.addLayer({
+      id: 'traffic-incidents-circle',
+      type: 'circle',
+      source: 'traffic-incidents',
+      paint: {
+        'circle-radius': 8,
+        'circle-color': [
+          'match', ['get', 'severity'],
+          'heavy', '#e74c3c',
+          'moderate', '#f39c12',
+          'low', '#f1c40f',
+          '#999999',
+        ],
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#ffffff',
+      },
+    });
+
+    this.map.addLayer({
+      id: 'traffic-incidents-label',
+      type: 'symbol',
+      source: 'traffic-incidents',
+      layout: {
+        'text-field': '⚠',
+        'text-size': 14,
+        'text-allow-overlap': true,
+      },
+    });
+
+    // Click popup for incident details
+    this.map.on('click', 'traffic-incidents-circle', (e) => {
+      const props = e.features[0].properties;
+      new maplibregl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(
+          `<div style="font-family:sans-serif;">` +
+          `<strong>${props.facility || ''}</strong><br/>` +
+          `${props.description || ''}<br/>` +
+          `<span style="color:${props.severity === 'heavy' ? '#e74c3c' : props.severity === 'moderate' ? '#f39c12' : '#999'};">` +
+          `Severity: ${props.severity || 'unknown'}</span>` +
+          `</div>`
+        )
+        .addTo(this.map);
+    });
+
+    this.map.on('mouseenter', 'traffic-incidents-circle', () => {
+      this.map.getCanvas().style.cursor = 'pointer';
+    });
+    this.map.on('mouseleave', 'traffic-incidents-circle', () => {
+      this.map.getCanvas().style.cursor = '';
+    });
+  }
+
+  clearTrafficIncidents() {
+    if (!this.map) return;
+    if (this.map.getLayer('traffic-incidents-label')) this.map.removeLayer('traffic-incidents-label');
+    if (this.map.getLayer('traffic-incidents-circle')) this.map.removeLayer('traffic-incidents-circle');
+    if (this.map.getSource('traffic-incidents')) this.map.removeSource('traffic-incidents');
+  }
+
   // ===================== VOICE =====================
 
   speak(text) {

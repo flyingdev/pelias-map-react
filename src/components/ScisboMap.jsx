@@ -85,6 +85,13 @@ export default function ScisboMap({
     });
   }, [mcRef]);
 
+  // Load traffic incidents on map ready
+  useEffect(() => {
+    const mc = mcRef.current;
+    if (!mc) return;
+    mc.ready().then(() => mc.fetchTrafficIncidents());
+  }, [mcRef]);
+
   // Reset isochrone toggle when controller clears the layer
   useEffect(() => {
     const mc = mcRef.current;
