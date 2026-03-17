@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import maplibregl from 'maplibre-gl';
 import { Client } from '@stomp/stompjs';
 import { CONFIG } from '../config';
 
@@ -36,11 +37,13 @@ function buildWsUrl(path) {
  *   CLEAR_ISOCHRONE  {}
  *   ROUTE_TO         { locationQuery }
  *   RECENTER         {}
+ *   SHOW_PLACES      { payload: [{ name, lat, lng, address }] }
  */
 export function useMapCommands(mcRef, userLocation) {
   // Keep a stable ref to the latest userLocation so the STOMP effect never
   // needs to restart every time GPS updates.
   const userLocationRef = useRef(userLocation);
+  const poiMarkersRef = useRef([]);
   useEffect(() => {
     userLocationRef.current = userLocation;
   }, [userLocation]);
@@ -101,6 +104,66 @@ export function useMapCommands(mcRef, userLocation) {
         case 'RECENTER':
           mc.recenter();
           break;
+
+        case 'SHOW_PLACES': {
+          const places = cmd.payload || [];
+
+          // Clear previous POI markers
+          poiMarkersRef.current.forEach((m) => m.remove());
+          poiMarkersRef.current = [];
+
+          if (!places.length) break;
+
+          const bounds = new maplibregl.LngLatBounds();
+
+          places.forEach((place) => {
+            // Build interactive popup with Navigate Here button
+            const container = document.createElement('div');
+            container.style.textAlign = 'center';
+            container.style.fontFamily = 'system-ui, sans-serif';
+            container.innerHTML = `
+              <strong style="font-size:14px;color:#333;">${place.name}</strong><br/>
+              <div style="font-size:11px;color:#868e96;margin-bottom:8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                ${place.address}
+              </div>
+              <button class="poi-nav-btn" style="
+                background:#228be6;color:white;border:none;padding:6px 12px;
+                border-radius:20px;font-weight:600;font-size:12px;cursor:pointer;
+                width:100%;box-shadow:0 2px 4px rgba(0,0,0,0.1);
+              ">Navigate Here</button>
+            `;
+
+            const navBtn = container.querySelector('.poi-nav-btn');
+            navBtn.addEventListener('click', () => {
+              const start = userLocationRef.current;
+              if (!start) {
+                console.warn('[useMapCommands] SHOW_PLACES navigate: no GPS');
+                return;
+              }
+              const dest = { lat: place.lat, lng: place.lng };
+              mc.placeRouteMarkers(start, dest, place.name);
+              mc.setRoute(start, dest);
+              // Clear POI markers after selecting one
+              poiMarkersRef.current.forEach((m) => m.remove());
+              poiMarkersRef.current = [];
+            });
+
+            const popup = new maplibregl.Popup({ offset: 25, closeButton: false })
+              .setDOMContent(container);
+
+            const marker = new maplibregl.Marker({ color: '#228be6' })
+              .setLngLat([place.lng, place.lat])
+              .setPopup(popup)
+              .addTo(mc.map);
+
+            poiMarkersRef.current.push(marker);
+            bounds.extend([place.lng, place.lat]);
+          });
+
+          mc.map.fitBounds(bounds, { padding: 50, maxZoom: 15, duration: 1200 });
+          console.info('[useMapCommands] SHOW_PLACES:', places.length, 'markers');
+          break;
+        }
 
         default:
           console.warn('[useMapCommands] Unknown command type:', cmd.type);

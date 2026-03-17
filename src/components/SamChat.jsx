@@ -21,7 +21,7 @@ const pulseStyle = `
   }
 `;
 
-export default function SamChat() {
+export default function SamChat({ userLocation }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -46,7 +46,13 @@ export default function SamChat() {
       const res = await fetch('/api/sam/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+          context: {
+            lat: userLocation?.lat || 40.7795,
+            lng: userLocation?.lng || -77.7997,
+          },
+        }),
       });
       const data = await res.json();
       setMessages((prev) => [...prev, { role: 'sam', text: data.reply }]);

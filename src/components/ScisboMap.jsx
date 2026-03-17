@@ -276,7 +276,7 @@ export default function ScisboMap({
         </ActionIcon>
       )}
 
-      <SamChat />
+      <SamChat userLocation={userLocation} />
     </div>
   );
 }
