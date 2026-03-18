@@ -571,20 +571,27 @@ export class MapController extends EventEmitter {
   // Fetch edge-level speed limits from Valhalla trace_attributes and attach to maneuvers
   async _fetchEdgeSpeedLimits(coordinates, maneuvers) {
     try {
-      // Sample up to 100 points from the route shape to avoid huge payloads
-      const step = Math.max(1, Math.floor(coordinates.length / 100));
+      // For short local routes, send all coordinates (trace_attributes needs
+      // consecutive points within 2km of each other). For long routes, skip
+      // the call entirely — speed limits are most useful for local navigation.
+      if (coordinates.length < 2) return;
+
+      // Cap at 500 points but keep them dense enough (< 2km apart)
+      const maxPoints = 500;
+      const step = Math.max(1, Math.floor(coordinates.length / maxPoints));
       const shape = [];
       for (let i = 0; i < coordinates.length; i += step) {
         shape.push({ lat: coordinates[i][1], lon: coordinates[i][0] });
       }
-      // Always include the last point
       const last = coordinates[coordinates.length - 1];
-      if (shape[shape.length - 1].lat !== last[1] || shape[shape.length - 1].lon !== last[0]) {
-        shape.push({ lat: last[1], lon: last[0] });
-      }
+      shape.push({ lat: last[1], lon: last[0] });
+
+      // Skip if route is too long (> ~80 km) — trace_attributes would be unreliable
+      if (shape.length > 500) return;
 
       const res = await fetch('/api/sam/valhalla/trace_attributes', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           shape,
           costing: this._costing,
@@ -601,16 +608,14 @@ export class MapController extends EventEmitter {
       const edges = data.edges || [];
       if (!edges.length) return;
 
-      // Map each maneuver to the edge speed limit at its begin_shape_index
+      // Map each maneuver to the nearest edge's speed limit
       for (const m of maneuvers) {
-        const shapeIdx = m.begin_shape_index;
-        // Find the edge that contains this shape index (scaled by step)
-        const scaledIdx = Math.floor(shapeIdx / step);
+        const scaledIdx = Math.floor(m.begin_shape_index / step);
         for (const edge of edges) {
-          if (scaledIdx >= (edge.begin_shape_index || 0) && scaledIdx <= (edge.end_shape_index || 0)) {
-            if (edge.speed_limit && edge.speed_limit > 0) {
-              m.speed_limit = edge.speed_limit; // km/h
-            }
+          const begin = edge.begin_shape_index || 0;
+          const end = edge.end_shape_index || 0;
+          if (scaledIdx >= begin && scaledIdx <= end && edge.speed_limit > 0) {
+            m.speed_limit = edge.speed_limit; // km/h
             break;
           }
         }
