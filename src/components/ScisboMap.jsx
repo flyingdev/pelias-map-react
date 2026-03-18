@@ -210,10 +210,11 @@ export default function ScisboMap({
   const { heading, isCompassActive, toggleCompass } = useCompass();
 
   // Rotate map bearing with compass when active and tracking
+  // MapLibre bearing = negative compass heading (so "up" on screen = direction you face)
   useEffect(() => {
     const mc = mcRef.current;
     if (isCompassActive && isFollowing && mc?.map) {
-      mc.map.setBearing(heading);
+      mc.map.setBearing(-heading);
       if (mc.map.getPitch() < 50) mc.map.setPitch(60);
     }
   }, [heading, isCompassActive, isFollowing, mcRef]);

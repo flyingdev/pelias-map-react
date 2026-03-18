@@ -7,6 +7,9 @@ import { isMobile } from '../utils/mobile';
 import { EventEmitter } from './EventEmitter';
 
 // Mode-dependent voice trigger distances (meters)
+// Early warning: speak verbal_pre_transition_instruction (e.g., "In 800 feet, turn right")
+const PRE_TRIGGER_METERS = { auto: 300, bicycle: 150, pedestrian: 60 };
+// Close-range alert: speak verbal_transition_alert_instruction (e.g., "Turn right")
 const TRIGGER_METERS = { auto: 70, bicycle: 45, pedestrian: 30 };
 const ARRIVAL_METERS = { auto: 40, bicycle: 25, pedestrian: 20 };
 
@@ -518,14 +521,13 @@ export class MapController extends EventEmitter {
 
     if (!maneuvers?.length || !coords?.length) return;
 
+    const preTriggerDist = PRE_TRIGGER_METERS[this._costing] ?? PRE_TRIGGER_METERS.auto;
     const triggerDist = TRIGGER_METERS[this._costing] ?? TRIGGER_METERS.auto;
     const carLoc = new maplibregl.LngLat(lngLat[0], lngLat[1]);
 
     // Scan forward from _nextManeuverIndex — skip past maneuvers the car
     // already passed (GPS jitter / fast driving may jump over one).
     for (let idx = this._nextManeuverIndex; idx < maneuvers.length; idx++) {
-      if (this._spokenManeuvers.has(idx)) continue;
-
       const nextStep = maneuvers[idx];
       const turnIndex = nextStep.begin_shape_index;
 
@@ -538,17 +540,28 @@ export class MapController extends EventEmitter {
       const turnLoc = new maplibregl.LngLat(turnCoords[0], turnCoords[1]);
       const d = carLoc.distanceTo(turnLoc);
 
-      if (d <= triggerDist) {
-        this._spokenManeuvers.add(idx);
+      // Stage 1: Early warning — "In 800 feet, turn right onto Boal Avenue"
+      const preKey = 'pre_' + idx;
+      if (d <= preTriggerDist && !this._spokenManeuvers.has(preKey)) {
+        this._spokenManeuvers.add(preKey);
         this.speak(nextStep.verbal_pre_transition_instruction || nextStep.instruction);
+        this._activeStepIdx = idx;
+        this.emit('activeStep', { index: idx });
+      }
+
+      // Stage 2: Close-range alert — "Turn right"
+      if (d <= triggerDist && !this._spokenManeuvers.has(idx)) {
+        this._spokenManeuvers.add(idx);
+        const alert = nextStep.verbal_transition_alert_instruction;
+        if (alert) this.speak(alert);
         this._activeStepIdx = idx;
         this._nextManeuverIndex = idx + 1;
         this.emit('activeStep', { index: idx });
-        return; // speak one maneuver per GPS tick
+        return; // advance to next maneuver
       }
 
       // First un-spoken maneuver is still out of range — stop scanning
-      break;
+      if (d > preTriggerDist) break;
     }
   }
 
