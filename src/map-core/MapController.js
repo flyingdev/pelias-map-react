@@ -583,7 +583,7 @@ export class MapController extends EventEmitter {
         shape.push({ lat: last[1], lon: last[0] });
       }
 
-      const res = await fetch(this._valhallaUrl.replace('/route', '/trace_attributes'), {
+      const res = await fetch('/api/sam/valhalla/trace_attributes', {
         method: 'POST',
         body: JSON.stringify({
           shape,
