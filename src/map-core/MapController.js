@@ -182,6 +182,9 @@ export class MapController extends EventEmitter {
       this._maneuvers = maneuvers;
       this._routeSummary = summary;
 
+      // Fetch per-edge speed limits via trace_attributes, then attach to maneuvers
+      this._fetchEdgeSpeedLimits(coordinates, maneuvers);
+
       this._drawRouteLine(coordinates);
       this.emit('route', { coordinates, maneuvers, summary, costing: this._costing });
 
@@ -537,7 +540,7 @@ export class MapController extends EventEmitter {
 
       if (d <= triggerDist) {
         this._spokenManeuvers.add(idx);
-        this.speak(nextStep.instruction);
+        this.speak(nextStep.verbal_pre_transition_instruction || nextStep.instruction);
         this._activeStepIdx = idx;
         this._nextManeuverIndex = idx + 1;
         this.emit('activeStep', { index: idx });
@@ -563,6 +566,66 @@ export class MapController extends EventEmitter {
       return true;
     }
     return false;
+  }
+
+  // Fetch edge-level speed limits from Valhalla trace_attributes and attach to maneuvers
+  async _fetchEdgeSpeedLimits(coordinates, maneuvers) {
+    try {
+      // Sample up to 100 points from the route shape to avoid huge payloads
+      const step = Math.max(1, Math.floor(coordinates.length / 100));
+      const shape = [];
+      for (let i = 0; i < coordinates.length; i += step) {
+        shape.push({ lat: coordinates[i][1], lon: coordinates[i][0] });
+      }
+      // Always include the last point
+      const last = coordinates[coordinates.length - 1];
+      if (shape[shape.length - 1].lat !== last[1] || shape[shape.length - 1].lon !== last[0]) {
+        shape.push({ lat: last[1], lon: last[0] });
+      }
+
+      const res = await fetch(this._valhallaUrl.replace('/route', '/trace_attributes'), {
+        method: 'POST',
+        body: JSON.stringify({
+          shape,
+          costing: this._costing,
+          shape_match: 'map_snap',
+          filters: {
+            attributes: ['edge.speed_limit', 'edge.begin_shape_index', 'edge.end_shape_index'],
+            action: 'include',
+          },
+        }),
+      });
+
+      if (!res.ok) return;
+      const data = await res.json();
+      const edges = data.edges || [];
+      if (!edges.length) return;
+
+      // Map each maneuver to the edge speed limit at its begin_shape_index
+      for (const m of maneuvers) {
+        const shapeIdx = m.begin_shape_index;
+        // Find the edge that contains this shape index (scaled by step)
+        const scaledIdx = Math.floor(shapeIdx / step);
+        for (const edge of edges) {
+          if (scaledIdx >= (edge.begin_shape_index || 0) && scaledIdx <= (edge.end_shape_index || 0)) {
+            if (edge.speed_limit && edge.speed_limit > 0) {
+              m.speed_limit = edge.speed_limit; // km/h
+            }
+            break;
+          }
+        }
+      }
+
+      // Re-emit route so React picks up the speed limit data
+      this.emit('route', {
+        coordinates: this._routeCoords,
+        maneuvers: this._maneuvers,
+        summary: this._routeSummary,
+        costing: this._costing,
+      });
+    } catch (err) {
+      console.warn('[MapController] Failed to fetch edge speed limits:', err);
+    }
   }
 
   // ===================== STATE SETTERS WITH EVENTS =====================
