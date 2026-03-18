@@ -22,6 +22,8 @@ import MobileNavBar from './MobileNavBar';
 import DirectionsPanel from './DirectionsPanel';
 import RecenterButton from './RecenterButton';
 import Speedometer from './Speedometer';
+import SpeedLimitSign from './SpeedLimitSign';
+import HighwaySign from './HighwaySign';
 import IsochronePanel from './IsochronePanel';
 import SamChat from './SamChat';
 
@@ -216,6 +218,17 @@ export default function ScisboMap({
     }
   }, [heading, isCompassActive, isFollowing, mcRef]);
 
+  // Derive speed limit and highway sign from current maneuver
+  const activeManeuver = routeData?.maneuvers?.[activeStepIndex] || null;
+
+  const currentSpeedLimit = useMemo(() => {
+    if (!activeManeuver?.speed_limit) return null;
+    const rawMph = activeManeuver.speed_limit * 0.621371;
+    return Math.round(rawMph / 5) * 5; // snap to nearest 5 MPH
+  }, [activeManeuver]);
+
+  const activeSign = activeManeuver?.sign || null;
+
   return (
     <div className="map-wrap">
       <div ref={mapContainerRef} className="map" />
@@ -261,6 +274,8 @@ export default function ScisboMap({
       />
 
       <Speedometer speed={speedMph} accuracy={accuracyM} visible={isTracking} />
+      <SpeedLimitSign limit={currentSpeedLimit} />
+      <HighwaySign signData={activeSign} />
 
       {isTracking && (
         <ActionIcon
