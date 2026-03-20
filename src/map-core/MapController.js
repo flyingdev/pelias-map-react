@@ -279,9 +279,12 @@ export class MapController extends EventEmitter {
     this._nextManeuverIndex = 1;
     this._spokenManeuvers = new Set();
 
-    // Speak first instruction (guard against empty/missing maneuvers)
+    // Speak first instruction and activate step 0 (so speed limit sign shows immediately)
     if (this._maneuvers?.length > 0 && this._maneuvers[0].instruction) {
-      this.speak('Starting route. ' + this._maneuvers[0].instruction);
+      const firstStep = this._maneuvers[0];
+      this.speak('Starting route. ' + (firstStep.verbal_pre_transition_instruction || firstStep.instruction));
+      this._activeStepIdx = 0;
+      this.emit('activeStep', { index: 0 });
     }
 
     this._setTracking(true);

@@ -213,11 +213,21 @@ export default function ScisboMap({
   // MapLibre bearing = negative compass heading (so "up" on screen = direction you face)
   useEffect(() => {
     const mc = mcRef.current;
-    if (isCompassActive && isFollowing && mc?.map) {
+    if (!mc?.map) return;
+    if (isCompassActive && isFollowing) {
       mc.map.setBearing(-heading);
       if (mc.map.getPitch() < 50) mc.map.setPitch(60);
     }
   }, [heading, isCompassActive, isFollowing, mcRef]);
+
+  // Reset to north-up and flat when compass is deactivated
+  useEffect(() => {
+    const mc = mcRef.current;
+    if (!isCompassActive && mc?.map) {
+      mc.map.setBearing(0);
+      mc.map.setPitch(0);
+    }
+  }, [isCompassActive, mcRef]);
 
   // Derive speed limit and highway sign from current maneuver
   const activeManeuver = routeData?.maneuvers?.[activeStepIndex] || null;
