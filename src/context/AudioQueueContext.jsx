@@ -12,8 +12,7 @@ export function AudioQueueProvider({ children }) {
     if (!text) return;
     const clean = text.replace(/[*_`#%~^\\]/g, '').replace(/\s+/g, ' ').trim();
     if (!clean) return;
-    const url = `/api/sam/speak?text=${encodeURIComponent(clean)}`;
-    setQueue((prev) => [...prev, url]);
+    setQueue((prev) => [...prev, clean]);
   }, []);
 
   const stopAudio = useCallback(() => {
@@ -32,10 +31,14 @@ export function AudioQueueProvider({ children }) {
   useEffect(() => {
     if (isPlaying || queue.length === 0) return;
 
-    const url = queue[0];
+    const text = queue[0];
     setIsPlaying(true);
 
-    fetch(url)
+    fetch('/api/sam/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
       .then((res) => {
         if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
         return res.blob();
