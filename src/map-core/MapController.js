@@ -139,7 +139,7 @@ export class MapController extends EventEmitter {
 
   // ===================== ROUTING =====================
 
-  async setRoute(start, end, mode) {
+  async setRoute(start, end, mode, { silent = false } = {}) {
     if (mode) this._costing = mode;
 
     // Store endpoints for reroute()
@@ -194,7 +194,7 @@ export class MapController extends EventEmitter {
       this._drawRouteLine(coordinates);
       this.emit('route', { coordinates, maneuvers, summary, costing: this._costing });
 
-      this.startTracking();
+      this.startTracking({ silent });
 
       return { coordinates, maneuvers, summary };
     } catch (err) {
@@ -272,7 +272,7 @@ export class MapController extends EventEmitter {
 
   // ===================== GPS TRACKING =====================
 
-  startTracking() {
+  startTracking({ silent = false } = {}) {
     if (!('geolocation' in navigator)) {
       this.emit('error', { type: 'gps', message: 'Geolocation not supported' });
       return;
@@ -285,7 +285,9 @@ export class MapController extends EventEmitter {
     // Speak first instruction and activate step 0 (so speed limit sign shows immediately)
     if (this._maneuvers?.length > 0 && this._maneuvers[0].instruction) {
       const firstStep = this._maneuvers[0];
-      this.speak('Starting route. ' + (firstStep.verbal_pre_transition_instruction || firstStep.instruction));
+      if (!silent) {
+        this.speak('Starting route. ' + (firstStep.verbal_pre_transition_instruction || firstStep.instruction));
+      }
       this._activeStepIdx = 0;
       this.emit('activeStep', { index: 0 });
     }

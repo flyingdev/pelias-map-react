@@ -97,7 +97,7 @@ export function useMapCommands(mcRef, userLocation) {
             return;
           }
           mc.placeRouteMarkers(start, dest, dest.label);
-          await mc.setRoute(start, dest);
+          await mc.setRoute(start, dest, undefined, { silent: true });
           break;
         }
 
