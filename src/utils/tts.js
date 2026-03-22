@@ -26,8 +26,11 @@ async function speakPiper(text) {
   stopCurrentAudio();
 
   try {
-    const url = `/api/sam/speak?text=${encodeURIComponent(text)}`;
-    const res = await fetch(url);
+    const res = await fetch('/api/sam/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
     if (!res.ok) throw new Error(`Piper HTTP ${res.status}`);
 
     const blob = await res.blob();
