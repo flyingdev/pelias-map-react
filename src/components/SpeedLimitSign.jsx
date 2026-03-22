@@ -5,10 +5,6 @@ export default React.memo(function SpeedLimitSign({ limit }) {
 
   return (
     <div style={{
-      position: 'absolute',
-      bottom: 30,
-      left: 80,
-      zIndex: 10,
       backgroundColor: 'white',
       border: '3px solid black',
       borderRadius: 4,

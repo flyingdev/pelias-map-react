@@ -342,10 +342,6 @@
 
 /* Speedometer */
 #speedometer {
-  position: absolute;
-  bottom: 30px;
-  left: 20px;
-  z-index: 1000;
   background-color: rgba(20, 20, 20, 0.85);
   color: #00ff00;
   border: 2px solid #333;

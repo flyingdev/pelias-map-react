@@ -209,23 +209,20 @@ export default function ScisboMap({
   useWakeLock(isTracking);
   const { heading, isCompassActive, toggleCompass } = useCompass();
 
-  // Rotate map bearing with compass when active and tracking
-  // MapLibre bearing = negative compass heading (so "up" on screen = direction you face)
+  // Feed compass heading into MapController (applied inside easeTo, not separately)
   useEffect(() => {
     const mc = mcRef.current;
-    if (!mc?.map) return;
+    if (!mc) return;
     if (isCompassActive && isFollowing) {
-      mc.map.setBearing(-heading);
-      if (mc.map.getPitch() < 50) mc.map.setPitch(60);
+      mc.setCompassBearing(heading);
     }
   }, [heading, isCompassActive, isFollowing, mcRef]);
 
-  // Reset to north-up and flat when compass is deactivated
+  // Reset compass when deactivated
   useEffect(() => {
     const mc = mcRef.current;
-    if (!isCompassActive && mc?.map) {
-      mc.map.setBearing(0);
-      mc.map.setPitch(0);
+    if (!isCompassActive && mc) {
+      mc.clearCompassBearing();
     }
   }, [isCompassActive, mcRef]);
 
@@ -279,28 +276,56 @@ export default function ScisboMap({
         onEnabledChange={setIsochroneEnabled}
       />
 
-      <RecenterButton
-        visible={!isFollowing && isTracking}
-        onRecenter={recenter}
-      />
-
-      <Speedometer speed={speedMph} accuracy={accuracyM} visible={isTracking} />
-      <SpeedLimitSign limit={currentSpeedLimit} />
+      {/* Highway sign — top center, pushed below search bar */}
       <HighwaySign signData={activeSign} />
 
+      {/* Telemetry dashboard — speedometer + speed limit grouped side-by-side */}
       {isTracking && (
-        <ActionIcon
-          onClick={toggleCompass}
-          variant={isCompassActive ? 'filled' : 'light'}
-          color={isCompassActive ? 'red' : 'blue'}
-          size="xl"
-          radius="xl"
-          style={{ position: 'absolute', top: 120, right: 20, zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-          aria-label="Toggle compass"
-        >
-          <IconCompass size={24} />
-        </ActionIcon>
+        <div style={{
+          position: 'absolute',
+          bottom: routeData ? 'calc(42vh + 20px)' : 40,
+          left: 16,
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+          gap: 8,
+          transition: 'bottom 0.3s ease-in-out',
+        }}>
+          <Speedometer speed={speedMph} accuracy={accuracyM} visible={isTracking} />
+          <SpeedLimitSign limit={currentSpeedLimit} />
+        </div>
       )}
+
+      {/* Action buttons — right side, stacked vertically */}
+      <div style={{
+        position: 'absolute',
+        bottom: routeData ? 'calc(42vh + 20px)' : 40,
+        right: 16,
+        zIndex: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        transition: 'bottom 0.3s ease-in-out',
+      }}>
+        {isTracking && (
+          <ActionIcon
+            onClick={toggleCompass}
+            variant={isCompassActive ? 'filled' : 'light'}
+            color={isCompassActive ? 'red' : 'blue'}
+            size="xl"
+            radius="xl"
+            style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+            aria-label="Toggle compass"
+          >
+            <IconCompass size={24} />
+          </ActionIcon>
+        )}
+        <RecenterButton
+          visible={!isFollowing && isTracking}
+          onRecenter={recenter}
+        />
+      </div>
 
       <SamChat userLocation={userLocation} />
     </div>

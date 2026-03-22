@@ -12,7 +12,7 @@ export default React.memo(function HighwaySign({ signData }) {
   return (
     <div style={{
       position: 'absolute',
-      top: 20,
+      top: 120,
       left: '50%',
       transform: 'translateX(-50%)',
       zIndex: 20,

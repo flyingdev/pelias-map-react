@@ -79,6 +79,9 @@ export class MapController extends EventEmitter {
     // User location (set by locateUser)
     this._userLocation = null;
 
+    // Compass bearing (set externally via setCompassBearing)
+    this._compassBearing = null;
+
     // Cached previous values for change detection
     this._prevSpeed = 0;
     this._prevAccuracy = null;
@@ -356,9 +359,14 @@ export class MapController extends EventEmitter {
     this._updateCarLocation(lngLat);
     this._updateHaloRadius(accuracy, position.coords.latitude);
 
-    // Follow mode
+    // Follow mode — include compass bearing if active
     if (this._isFollowing) {
-      this.map.easeTo({ center: lngLat, duration: 800 });
+      const easeOpts = { center: lngLat, duration: 800 };
+      if (this._compassBearing != null) {
+        easeOpts.bearing = -this._compassBearing;
+        if (this.map.getPitch() < 50) easeOpts.pitch = 60;
+      }
+      this.map.easeTo(easeOpts);
     }
 
     // Voice navigation (only when route + maneuvers are both present)
@@ -1067,6 +1075,20 @@ export class MapController extends EventEmitter {
 
   setVoiceMode(mode) {
     setPiperEnabled(mode === 'piper');
+  }
+
+  // ===================== COMPASS =====================
+
+  setCompassBearing(heading) {
+    this._compassBearing = heading;
+    // If following, the bearing will be applied on the next GPS update via easeTo
+  }
+
+  clearCompassBearing() {
+    this._compassBearing = null;
+    if (this.map) {
+      this.map.easeTo({ bearing: 0, pitch: 0, duration: 1000 });
+    }
   }
 
   // ===================== READ-ONLY GETTERS =====================
