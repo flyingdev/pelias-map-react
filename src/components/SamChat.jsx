@@ -3,7 +3,7 @@ import {
   Drawer, TextInput, ActionIcon, Group, Text, Box,
   ScrollArea, Avatar, Loader,
 } from '@mantine/core';
-import { IconMicrophone, IconSend, IconX, IconRobotFace, IconPlayerStop } from '@tabler/icons-react';
+import { IconMicrophone, IconSend, IconX, IconRobotFace, IconPlayerStop, IconStar, IconTrash } from '@tabler/icons-react';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { transcribeAudio } from '../utils/stt';
 import { useAudioQueue } from '../context/AudioQueueContext';
@@ -21,7 +21,7 @@ const pulseStyle = `
   }
 `;
 
-export default function SamChat({ userLocation }) {
+export default function SamChat({ userLocation, favorites = [], onRemoveFavorite }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -51,6 +51,7 @@ export default function SamChat({ userLocation }) {
           context: {
             lat: userLocation?.lat || 40.7795,
             lng: userLocation?.lng || -77.7997,
+            savedPlaces: favorites.length > 0 ? favorites : undefined,
           },
         }),
       });
@@ -155,6 +156,37 @@ export default function SamChat({ userLocation }) {
             <IconX size={18} color="#888" />
           </ActionIcon>
         </Group>
+
+        {/* Favorites */}
+        {favorites.length > 0 && (
+          <Box mb="xs">
+            <Text size="xs" fw={600} c="dimmed" mb={4}>Saved Places</Text>
+            <Group gap={6} wrap="wrap">
+              {favorites.map((fav) => (
+                <Box
+                  key={fav.name}
+                  px="sm" py={4}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    backgroundColor: '#fff9db', border: '1px solid #fcc419',
+                    borderRadius: 16, cursor: 'pointer', fontSize: 12,
+                  }}
+                >
+                  <IconStar size={12} color="#f59f00" />
+                  <span
+                    onClick={() => send(`Navigate to ${fav.name}`)}
+                    style={{ fontWeight: 600 }}
+                  >{fav.name}</span>
+                  <IconTrash
+                    size={12} color="#aaa"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => onRemoveFavorite?.(fav.name)}
+                  />
+                </Box>
+              ))}
+            </Group>
+          </Box>
+        )}
 
         {/* Messages */}
         <ScrollArea style={{ flexGrow: 1 }} mb="sm" viewportRef={listRef}>

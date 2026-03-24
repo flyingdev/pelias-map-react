@@ -42,7 +42,7 @@ function buildWsUrl(path) {
  *   RECENTER         {}
  *   SHOW_PLACES      { payload: [{ name, lat, lng, address }] }
  */
-export function useMapCommands(mcRef, userLocation, heading, isTracking) {
+export function useMapCommands(mcRef, userLocation, heading, isTracking, onSaveFavorite) {
   // Keep a stable ref to the latest userLocation so the STOMP effect never
   // needs to restart every time GPS updates.
   const userLocationRef = useRef(userLocation);
@@ -183,11 +183,17 @@ export function useMapCommands(mcRef, userLocation, heading, isTracking) {
               <div style="font-size:11px;color:#868e96;margin-bottom:8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                 ${place.address}
               </div>
-              <button class="poi-nav-btn" style="
-                background:#228be6;color:white;border:none;padding:6px 12px;
-                border-radius:20px;font-weight:600;font-size:12px;cursor:pointer;
-                width:100%;box-shadow:0 2px 4px rgba(0,0,0,0.1);
-              ">Navigate Here</button>
+              <div style="display:flex;gap:6px;">
+                <button class="poi-nav-btn" style="
+                  flex:1;background:#228be6;color:white;border:none;padding:6px 12px;
+                  border-radius:20px;font-weight:600;font-size:12px;cursor:pointer;
+                  box-shadow:0 2px 4px rgba(0,0,0,0.1);
+                ">Navigate</button>
+                <button class="poi-fav-btn" style="
+                  background:#fcc419;color:white;border:none;padding:6px 12px;
+                  border-radius:20px;font-weight:600;font-size:12px;cursor:pointer;
+                ">⭐ Save</button>
+              </div>
             `;
 
             const navBtn = container.querySelector('.poi-nav-btn');
@@ -200,9 +206,17 @@ export function useMapCommands(mcRef, userLocation, heading, isTracking) {
               const dest = { lat: place.lat, lng: place.lng };
               mc.placeRouteMarkers(start, dest, place.name);
               mc.setRoute(start, dest);
-              // Clear POI markers after selecting one
               poiMarkersRef.current.forEach((m) => m.remove());
               poiMarkersRef.current = [];
+            });
+
+            const favBtn = container.querySelector('.poi-fav-btn');
+            favBtn.addEventListener('click', () => {
+              if (onSaveFavorite) {
+                onSaveFavorite({ name: place.name, lat: place.lat, lng: place.lng, address: place.address });
+                favBtn.innerHTML = '✅ Saved';
+                favBtn.style.backgroundColor = '#40c057';
+              }
             });
 
             const popup = new maplibregl.Popup({ offset: 25, closeButton: false })

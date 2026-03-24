@@ -11,6 +11,7 @@ import { useReverseGeocode } from '../hooks/useReverseGeocode';
 import { useMapCommands } from '../hooks/useMapCommands';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useCompass } from '../hooks/useCompass';
+import { useFavorites } from '../hooks/useFavorites';
 import { ActionIcon } from '@mantine/core';
 import { IconCompass } from '@tabler/icons-react';
 
@@ -207,7 +208,8 @@ export default function ScisboMap({
   useReverseGeocode(mcRef, handleReverseNavigate);
   useWakeLock(isTracking);
   const { heading, isCompassActive, toggleCompass } = useCompass();
-  useMapCommands(mcRef, userLocation, heading, isTracking);
+  const { favorites, addFavorite, removeFavorite } = useFavorites();
+  useMapCommands(mcRef, userLocation, heading, isTracking, addFavorite);
 
   // Feed compass heading into MapController (applied inside easeTo, not separately)
   useEffect(() => {
@@ -327,7 +329,7 @@ export default function ScisboMap({
         />
       </div>
 
-      <SamChat userLocation={userLocation} />
+      <SamChat userLocation={userLocation} favorites={favorites} onRemoveFavorite={removeFavorite} />
     </div>
   );
 }
