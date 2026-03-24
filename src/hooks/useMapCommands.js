@@ -3,6 +3,9 @@ import maplibregl from 'maplibre-gl';
 import { Client } from '@stomp/stompjs';
 import { CONFIG } from '../config';
 
+// Stable vehicle ID per browser session
+const MY_VEHICLE_ID = `Scisbo-${Math.random().toString(36).slice(2, 7)}`;
+
 // Geocode a free-text query via Pelias /search, return { lat, lng, label } or null
 async function geocodePlace(query, peliasUrl) {
   try {
@@ -29,8 +32,8 @@ function buildWsUrl(path) {
  * Subscribes to CONFIG.wsCommandsTopic via STOMP and dispatches typed map
  * commands to the MapController (mcRef.current).
  *
- * Spring config: @EnableWebSocketMessageBroker + /ws-endpoint handshake
- * Sam broadcasts to: /topic/map-commands
+ * Also handles fleet tracking: broadcasts own location every 3s,
+ * draws other users' car markers, and sweeps ghost cars after 30s.
  *
  * Supported command types:
  *   ISOCHRONE        { locationQuery?, minutes?, mode? }
@@ -39,14 +42,68 @@ function buildWsUrl(path) {
  *   RECENTER         {}
  *   SHOW_PLACES      { payload: [{ name, lat, lng, address }] }
  */
-export function useMapCommands(mcRef, userLocation) {
+export function useMapCommands(mcRef, userLocation, heading, isTracking) {
   // Keep a stable ref to the latest userLocation so the STOMP effect never
   // needs to restart every time GPS updates.
   const userLocationRef = useRef(userLocation);
+  const headingRef = useRef(heading);
+  const isTrackingRef = useRef(isTracking);
   const poiMarkersRef = useRef([]);
+  const fleetMarkersRef = useRef({});
+  const fleetLastSeenRef = useRef({});
+  const stompClientRef = useRef(null);
+
   useEffect(() => {
     userLocationRef.current = userLocation;
   }, [userLocation]);
+  useEffect(() => {
+    headingRef.current = heading;
+  }, [heading]);
+  useEffect(() => {
+    isTrackingRef.current = isTracking;
+  }, [isTracking]);
+
+  // Fleet broadcaster — send location every 3 seconds
+  useEffect(() => {
+    if (!isTracking) return;
+
+    const broadcastInterval = setInterval(() => {
+      const client = stompClientRef.current;
+      const loc = userLocationRef.current;
+      if (!client?.connected || !loc) return;
+
+      client.publish({
+        destination: CONFIG.wsFleetDest,
+        body: JSON.stringify({
+          userId: MY_VEHICLE_ID,
+          lat: loc.lat,
+          lng: loc.lng,
+          heading: headingRef.current || 0,
+        }),
+      });
+    }, 3000);
+
+    return () => clearInterval(broadcastInterval);
+  }, [isTracking]);
+
+  // Ghost car sweeper — remove vehicles silent for >30s
+  useEffect(() => {
+    const sweepInterval = setInterval(() => {
+      const now = Date.now();
+      Object.keys(fleetLastSeenRef.current).forEach((userId) => {
+        if (now - fleetLastSeenRef.current[userId] > 30000) {
+          console.info('[Fleet] Removing ghost:', userId);
+          if (fleetMarkersRef.current[userId]) {
+            fleetMarkersRef.current[userId].remove();
+            delete fleetMarkersRef.current[userId];
+          }
+          delete fleetLastSeenRef.current[userId];
+        }
+      });
+    }, 15000);
+
+    return () => clearInterval(sweepInterval);
+  }, []);
 
   useEffect(() => {
     if (!CONFIG.wsEnabled) return; // Sam backend not deployed yet — skip silently
@@ -170,12 +227,62 @@ export function useMapCommands(mcRef, userLocation) {
       }
     }
 
+    function handleFleetMessage(message) {
+      const mc = mcRef.current;
+      if (!mc?.map) return;
+
+      let data;
+      try {
+        data = JSON.parse(message.body);
+      } catch {
+        return;
+      }
+
+      // Ignore our own echoes
+      if (data.userId === MY_VEHICLE_ID) return;
+
+      // Stamp the last-seen ledger
+      fleetLastSeenRef.current[data.userId] = Date.now();
+
+      let marker = fleetMarkersRef.current[data.userId];
+
+      if (!marker) {
+        // Create new fleet vehicle marker
+        const el = document.createElement('div');
+        el.style.fontSize = '28px';
+        el.style.transition = 'transform 0.3s ease-out';
+        el.style.transform = `rotate(${data.heading}deg)`;
+        el.textContent = '\u{1F698}'; // car emoji
+
+        const popup = new maplibregl.Popup({
+          offset: 25,
+          closeButton: false,
+          closeOnClick: false,
+        }).setText(data.userId);
+
+        marker = new maplibregl.Marker({ element: el })
+          .setLngLat([data.lng, data.lat])
+          .setPopup(popup)
+          .addTo(mc.map);
+
+        marker.togglePopup(); // Show label by default
+        fleetMarkersRef.current[data.userId] = marker;
+        console.info('[Fleet] New vehicle:', data.userId);
+      } else {
+        // Update existing vehicle position and heading
+        marker.setLngLat([data.lng, data.lat]);
+        marker.getElement().style.transform = `rotate(${data.heading}deg)`;
+      }
+    }
+
     const client = new Client({
       brokerURL: buildWsUrl(CONFIG.wsEndpoint),
       reconnectDelay: 5000, // @stomp/stompjs handles reconnect automatically
 
       onConnect: () => {
         console.info('[useMapCommands] STOMP connected →', CONFIG.wsCommandsTopic);
+
+        // Subscribe to Sam's map commands
         client.subscribe(CONFIG.wsCommandsTopic, (message) => {
           let cmd;
           try {
@@ -186,6 +293,10 @@ export function useMapCommands(mcRef, userLocation) {
           }
           dispatch(cmd).catch(console.error);
         });
+
+        // Subscribe to fleet location updates
+        client.subscribe(CONFIG.wsFleetTopic, handleFleetMessage);
+        console.info('[Fleet] Subscribed to', CONFIG.wsFleetTopic, 'as', MY_VEHICLE_ID);
       },
 
       onDisconnect: () => {
@@ -198,9 +309,15 @@ export function useMapCommands(mcRef, userLocation) {
     });
 
     client.activate();
+    stompClientRef.current = client;
 
     return () => {
       client.deactivate();
+      stompClientRef.current = null;
+      // Clean up fleet markers
+      Object.values(fleetMarkersRef.current).forEach((m) => m.remove());
+      fleetMarkersRef.current = {};
+      fleetLastSeenRef.current = {};
     };
   }, [mcRef]); // only re-run if mcRef identity changes (effectively mount-only)
 }

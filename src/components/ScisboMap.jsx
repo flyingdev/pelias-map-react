@@ -205,9 +205,9 @@ export default function ScisboMap({
   );
 
   useReverseGeocode(mcRef, handleReverseNavigate);
-  useMapCommands(mcRef, userLocation);
   useWakeLock(isTracking);
   const { heading, isCompassActive, toggleCompass } = useCompass();
+  useMapCommands(mcRef, userLocation, heading, isTracking);
 
   // Feed compass heading into MapController (applied inside easeTo, not separately)
   useEffect(() => {
