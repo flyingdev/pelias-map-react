@@ -154,13 +154,13 @@ export function useMapCommands(mcRef, userLocation, heading, isTracking, onSaveF
             console.warn('[useMapCommands] ROUTE_TO: missing locationQuery');
             return;
           }
-          // Clear any existing route before starting a new one (prevents zombie routes)
-          mc.resetRoute();
           const dest = await geocodePlace(cmd.locationQuery, mc._peliasUrl);
           if (!dest) {
             console.warn('[useMapCommands] ROUTE_TO: could not geocode', cmd.locationQuery);
             return;
           }
+          // Clear any existing route before starting a new one (prevents zombie routes)
+          mc.resetRoute();
           mc.placeRouteMarkers(start, dest, dest.label);
           await mc.setRoute(start, dest, undefined, { silent: true });
           break;

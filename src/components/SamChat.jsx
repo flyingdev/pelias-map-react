@@ -65,7 +65,7 @@ export default function SamChat({ userLocation, favorites = [], onRemoveFavorite
     } finally {
       setLoading(false);
     }
-  }, [input, loading]);
+  }, [input, loading, userLocation, favorites, enqueueAudio]);
 
   const handleMicToggle = useCallback(async () => {
     if (recording) {
