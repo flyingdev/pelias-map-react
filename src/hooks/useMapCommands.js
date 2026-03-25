@@ -7,14 +7,11 @@ import { CONFIG } from '../config';
 const MY_VEHICLE_ID = `Scisbo-${Math.random().toString(36).slice(2, 7)}`;
 
 // Geocode a free-text query via Pelias /search, return { lat, lng, label } or null
-// If focusPoint { lat, lng } is provided, bias results toward that location.
-async function geocodePlace(query, peliasUrl, focusPoint) {
+async function geocodePlace(query, peliasUrl) {
   try {
-    let url = `${peliasUrl}/search?text=${encodeURIComponent(query)}&size=1`;
-    if (focusPoint?.lat != null && focusPoint?.lng != null) {
-      url += `&focus.point.lat=${focusPoint.lat}&focus.point.lng=${focusPoint.lng}`;
-    }
-    const res = await fetch(url);
+    const res = await fetch(
+      `${peliasUrl}/search?text=${encodeURIComponent(query)}&size=1`
+    );
     const data = await res.json();
     const f = data?.features?.[0];
     if (!f) return null;
@@ -121,7 +118,7 @@ export function useMapCommands(mcRef, userLocation, heading, isTracking, onSaveF
           // If Sam gave a place name, geocode it; otherwise use current GPS position
           let center = userLocationRef.current;
           if (cmd.locationQuery) {
-            center = await geocodePlace(cmd.locationQuery, mc._peliasUrl, userLocationRef.current);
+            center = await geocodePlace(cmd.locationQuery, mc._peliasUrl);
             if (!center) {
               console.warn('[useMapCommands] ISOCHRONE: could not geocode', cmd.locationQuery);
               return;
@@ -157,7 +154,7 @@ export function useMapCommands(mcRef, userLocation, heading, isTracking, onSaveF
             console.warn('[useMapCommands] ROUTE_TO: missing locationQuery');
             return;
           }
-          const dest = await geocodePlace(cmd.locationQuery, mc._peliasUrl, start);
+          const dest = await geocodePlace(cmd.locationQuery, mc._peliasUrl);
           if (!dest) {
             console.warn('[useMapCommands] ROUTE_TO: could not geocode', cmd.locationQuery);
             return;
