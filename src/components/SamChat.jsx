@@ -49,8 +49,8 @@ export default function SamChat({ userLocation, favorites = [], onRemoveFavorite
         body: JSON.stringify({
           message: text,
           context: {
-            lat: userLocation?.lat || 40.7795,
-            lng: userLocation?.lng || -77.7997,
+            lat: userLocation?.lat || null,
+            lng: userLocation?.lng || null,
             savedPlaces: favorites.length > 0 ? favorites : undefined,
           },
         }),

@@ -765,7 +765,7 @@ export class MapController extends EventEmitter {
         .setLngLat([lng, lat])
         .setPopup(new maplibregl.Popup().setHTML(label))
         .addTo(this.map);
-      this.emit('userLocation', { lat, lng });
+      this.emit('userLocation', { lat, lng, timestamp: Date.now() });
     };
 
     if ('geolocation' in navigator && window.isSecureContext) {
