@@ -357,6 +357,14 @@ export class MapController extends EventEmitter {
       this.emit('accuracy', { meters: accuracy });
     }
 
+    // Emit updated userLocation so React state stays fresh
+    this.emit('userLocation', {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+      accuracy,
+      timestamp: position.timestamp,
+    });
+
     // Imperative map updates
     this._updateCarLocation(lngLat);
     this._updateHaloRadius(accuracy, position.coords.latitude);

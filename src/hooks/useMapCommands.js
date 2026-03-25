@@ -41,6 +41,7 @@ function buildWsUrl(path) {
  *   ROUTE_TO         { locationQuery }
  *   RECENTER         {}
  *   SHOW_PLACES      { payload: [{ name, lat, lng, address }] }
+ *   STOP_NAVIGATION  {}
  */
 export function useMapCommands(mcRef, userLocation, heading, isTracking, onSaveFavorite) {
   // Keep a stable ref to the latest userLocation so the STOMP effect never
@@ -144,10 +145,21 @@ export function useMapCommands(mcRef, userLocation, heading, isTracking, onSaveF
             console.warn('[useMapCommands] ROUTE_TO: waiting for GPS lock');
             return;
           }
+          // Validate GPS is fresh (< 30s old) and accurate (< 100m)
+          if (start.timestamp && Date.now() - start.timestamp > 30000) {
+            console.warn('[useMapCommands] ROUTE_TO: GPS fix is stale (>30s)');
+            return;
+          }
+          if (start.accuracy && start.accuracy > 100) {
+            console.warn('[useMapCommands] ROUTE_TO: GPS accuracy too low:', start.accuracy, 'm');
+            return;
+          }
           if (!cmd.locationQuery) {
             console.warn('[useMapCommands] ROUTE_TO: missing locationQuery');
             return;
           }
+          // Clear any existing route before starting a new one (prevents zombie routes)
+          mc.resetRoute();
           const dest = await geocodePlace(cmd.locationQuery, mc._peliasUrl);
           if (!dest) {
             console.warn('[useMapCommands] ROUTE_TO: could not geocode', cmd.locationQuery);
@@ -157,6 +169,14 @@ export function useMapCommands(mcRef, userLocation, heading, isTracking, onSaveF
           await mc.setRoute(start, dest, undefined, { silent: true });
           break;
         }
+
+        case 'STOP_NAVIGATION':
+          console.info('[useMapCommands] STOP_NAVIGATION');
+          mc.resetRoute();
+          // Clear POI markers too
+          poiMarkersRef.current.forEach((m) => m.remove());
+          poiMarkersRef.current = [];
+          break;
 
         case 'RECENTER':
           mc.recenter();
