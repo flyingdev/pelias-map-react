@@ -52,6 +52,7 @@ export default function SamChat({ userLocation, favorites = [], onRemoveFavorite
             lat: userLocation?.lat || null,
             lng: userLocation?.lng || null,
             savedPlaces: favorites.length > 0 ? favorites : undefined,
+            history: messages.slice(-6),
           },
         }),
       });
@@ -65,7 +66,7 @@ export default function SamChat({ userLocation, favorites = [], onRemoveFavorite
     } finally {
       setLoading(false);
     }
-  }, [input, loading, userLocation, favorites, enqueueAudio]);
+  }, [input, loading, userLocation, favorites, enqueueAudio, messages]);
 
   const handleMicToggle = useCallback(async () => {
     if (recording) {
