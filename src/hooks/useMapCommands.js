@@ -145,13 +145,9 @@ export function useMapCommands(mcRef, userLocation, heading, isTracking, onSaveF
             console.warn('[useMapCommands] ROUTE_TO: waiting for GPS lock');
             return;
           }
-          // Validate GPS is fresh (< 30s old) and accurate (< 100m)
-          if (start.timestamp && Date.now() - start.timestamp > 30000) {
-            console.warn('[useMapCommands] ROUTE_TO: GPS fix is stale (>30s)');
-            return;
-          }
-          if (start.accuracy && start.accuracy > 100) {
-            console.warn('[useMapCommands] ROUTE_TO: GPS accuracy too low:', start.accuracy, 'm');
+          // Validate GPS is fresh (< 60s old) — skip if no timestamp (initial locate)
+          if (start.timestamp && Date.now() - start.timestamp > 60000) {
+            console.warn('[useMapCommands] ROUTE_TO: GPS fix is stale (>60s)');
             return;
           }
           if (!cmd.locationQuery) {
