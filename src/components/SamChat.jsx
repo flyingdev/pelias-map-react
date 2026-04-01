@@ -59,9 +59,9 @@ export default function SamChat({ userLocation, favorites = [], onRemoveFavorite
       const data = await res.json();
       setMessages((prev) => [...prev, { role: 'sam', text: data.reply }]);
       if (data.reply) {
-        // Skip TTS for route confirmations — turn-by-turn navigation handles audio
-        const isRouteResponse = /routing to|route has been|navigation.*stopped/i.test(data.reply);
-        if (!isRouteResponse) {
+        // Skip TTS for route starts — turn-by-turn navigation handles audio
+        const isRouteStart = /routing to|routed to|route to/i.test(data.reply);
+        if (!isRouteStart) {
           enqueueAudio(data.reply);
         }
       }
