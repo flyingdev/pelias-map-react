@@ -59,7 +59,11 @@ export default function SamChat({ userLocation, favorites = [], onRemoveFavorite
       const data = await res.json();
       setMessages((prev) => [...prev, { role: 'sam', text: data.reply }]);
       if (data.reply) {
-        enqueueAudio(data.reply);
+        // Skip TTS for route confirmations — turn-by-turn navigation handles audio
+        const isRouteResponse = /routing to|route has been|navigation.*stopped/i.test(data.reply);
+        if (!isRouteResponse) {
+          enqueueAudio(data.reply);
+        }
       }
     } catch {
       setMessages((prev) => [...prev, { role: 'sam', text: 'Sorry, I could not reach the server.' }]);
