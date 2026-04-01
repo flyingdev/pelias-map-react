@@ -145,9 +145,9 @@ export function useMapCommands(mcRef, userLocation, heading, isTracking, onSaveF
             console.warn('[useMapCommands] ROUTE_TO: waiting for GPS lock');
             return;
           }
-          // Validate GPS is fresh (< 60s old) — skip if no timestamp (initial locate)
-          if (start.timestamp && Date.now() - start.timestamp > 60000) {
-            console.warn('[useMapCommands] ROUTE_TO: GPS fix is stale (>60s)');
+          // Validate GPS is fresh (< 5min old) — skip if no timestamp (initial locate)
+          if (start.timestamp && Date.now() - start.timestamp > 300000) {
+            console.warn('[useMapCommands] ROUTE_TO: GPS fix is stale (>5min)');
             return;
           }
           if (!cmd.locationQuery) {
