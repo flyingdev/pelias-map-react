@@ -27,6 +27,7 @@ import SpeedLimitSign from './SpeedLimitSign';
 import HighwaySign from './HighwaySign';
 import IsochronePanel from './IsochronePanel';
 import SamChat from './SamChat';
+import SamCards from './SamCards';
 
 export default function ScisboMap({
   initialCenter,
@@ -330,6 +331,7 @@ export default function ScisboMap({
       </div>
 
       <SamChat userLocation={userLocation} favorites={favorites} onRemoveFavorite={removeFavorite} />
+      <SamCards />
     </div>
   );
 }
